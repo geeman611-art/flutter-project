@@ -369,6 +369,7 @@ class AnimationController extends Animation<double>
   /// canceled, meaning the future never completes and its [TickerFuture.orCancel]
   /// derivative future completes with a [TickerCanceled] error.
   /// {@endtemplate}
+  ///
   /// See also:
   ///
   ///  * [reset], which is equivalent to setting [value] to [lowerBound].
@@ -641,7 +642,7 @@ class AnimationController extends Animation<double>
     // Ideally, the framework would be able to handle zero duration animations; however, the common
     // pattern of an eternally repeating animation might cause an endless loop if it weren't delayed
     // for at least one frame.
-    // Instead, we run it at 5% of the normal duration to limit most animations to a single frame.
+    // Instead, it's run at 5% of the normal duration to limit most animations to a single frame.
     final scale = animationBehavior._enableAnimations ? 1.0 : 0.05;
     var simulationDuration = duration;
     if (simulationDuration == null) {
