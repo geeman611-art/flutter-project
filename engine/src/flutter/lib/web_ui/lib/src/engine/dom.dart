@@ -124,6 +124,8 @@ extension type DomWindow._(JSObject _) implements DomEventTarget {
   /// if not in an iframe.
   external DomWindow? get parent;
 
+  external void scrollBy(double x, double y);
+
   @visibleForTesting
   Future<Object?> fetch(String url) {
     // To make sure we have a consistent approach for handling and reporting
@@ -526,7 +528,15 @@ extension type DomElement._(JSObject _) implements DomNode {
 
   external double scrollTop;
   external double scrollLeft;
+  external double get scrollHeight;
   external DomTokenList get classList;
+
+  @JS('scrollTo')
+  external void _scrollTo([JSAny? options]);
+
+  void scrollTo({required double top, String behavior = 'auto'}) {
+    _scrollTo(<String, dynamic>{'top': top, 'behavior': behavior}.toJSAnyDeep);
+  }
 
   /// Scrolls the element into the visible area of the browser window.
   ///
@@ -1995,6 +2005,10 @@ extension type DomTouchEvent._(JSObject _) implements DomUIEvent {
   @JS('changedTouches')
   external _DomList get _changedTouches;
   Iterable<DomTouch> get changedTouches => _createDomListWrapper<DomTouch>(_changedTouches);
+
+  @JS('touches')
+  external _DomList get _touches;
+  Iterable<DomTouch> get touches => _createDomListWrapper<DomTouch>(_touches);
 }
 
 @JS('Touch')
@@ -2716,4 +2730,22 @@ extension type DomTextCluster._(JSObject _) implements JSObject {
   external int get end;
   external double get x;
   external double get y;
+}
+
+/// Scrolls the parent/host window by the given delta.
+///
+/// Used when Flutter is embedded in an iframe and needs to propagate
+/// overscroll to the parent page.
+void scrollParentWindow(double deltaX, double deltaY) {
+  try {
+    final DomWindow? parent = domWindow.parent;
+    final bool isIframe = parent != null && !identical(parent, domWindow);
+    if (isIframe) {
+      parent.scrollBy(deltaX, deltaY);
+    } else {
+      domWindow.scrollBy(deltaX, deltaY);
+    }
+  } catch (_) {
+    // Cross-origin iframe, silently ignore.
+  }
 }

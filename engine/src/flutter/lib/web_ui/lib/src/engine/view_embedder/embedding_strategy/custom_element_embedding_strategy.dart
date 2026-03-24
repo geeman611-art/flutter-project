@@ -41,8 +41,6 @@ class CustomElementEmbeddingStrategy implements EmbeddingStrategy {
       ..style.display = 'block'
       ..style.overflow = 'hidden'
       ..style.position = 'relative'
-      // This is needed so the browser lets flutter handle all pointer events
-      // it receives, without canceling them.
       ..style.touchAction = 'none';
 
     hostElement.appendChild(rootElement);
@@ -50,4 +48,16 @@ class CustomElementEmbeddingStrategy implements EmbeddingStrategy {
     registerElementForCleanup(rootElement);
     _rootElement = rootElement;
   }
+
+  @override
+  bool get supportsBrowserScrolling => false;
+
+  @override
+  void enableBrowserScrolling(DomElement rootElement) {}
+
+  @override
+  void disableBrowserScrolling(DomElement rootElement) {}
+
+  @override
+  void updateScrollContentHeight(double height) {}
 }

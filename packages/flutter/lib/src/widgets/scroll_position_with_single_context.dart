@@ -11,17 +11,23 @@ library;
 
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 
 import 'basic.dart';
-import 'framework.dart';
 import 'scroll_activity.dart';
 import 'scroll_context.dart';
 import 'scroll_notification.dart';
 import 'scroll_physics.dart';
 import 'scroll_position.dart';
+
+const BasicMessageChannel<Object?> _scrollChannel = BasicMessageChannel<Object?>(
+  'flutter/scroll',
+  StandardMessageCodec(),
+);
 
 /// A scroll position that manages scroll activities for a single
 /// [ScrollContext].
@@ -128,7 +134,36 @@ class ScrollPositionWithSingleContext extends ScrollPosition implements ScrollAc
   @override
   void applyUserOffset(double delta) {
     updateUserScrollDirection(delta > 0.0 ? ScrollDirection.forward : ScrollDirection.reverse);
+
+    final bool wasAtMin = pixels <= minScrollExtent;
+    final bool wasAtMax = pixels >= maxScrollExtent;
+
     setPixels(pixels - physics.applyPhysicsToUserOffset(this, delta));
+
+    if (kIsWeb) {
+      final bool shouldPropagateDown = delta < 0 && (wasAtMax || pixels >= maxScrollExtent);
+      final bool shouldPropagateUp = delta > 0 && (wasAtMin || pixels <= minScrollExtent);
+
+      if (shouldPropagateDown || shouldPropagateUp) {
+        _propagateScrollToParent(delta);
+      }
+    }
+  }
+
+  void _propagateScrollToParent(double overscroll) {
+    var deltaX = 0.0;
+    var deltaY = 0.0;
+    switch (axisDirection) {
+      case AxisDirection.up:
+        deltaY = overscroll;
+      case AxisDirection.down:
+        deltaY = -overscroll;
+      case AxisDirection.left:
+        deltaX = overscroll;
+      case AxisDirection.right:
+        deltaX = -overscroll;
+    }
+    _scrollChannel.send(<String, dynamic>{'deltaX': deltaX, 'deltaY': deltaY});
   }
 
   @override
