@@ -104,6 +104,16 @@ class _BrowserScrollableState extends State<BrowserScrollable> {
 
   bool _enabled = false;
 
+  // The highest scroll position the user has reached. Used to size the
+  // placeholder so it reflects revealed content rather than the lazy
+  // layout overestimate.
+  double _maxReachedPixels = 0;
+
+  // Set to true once the user has scrolled to the very bottom of the
+  // content. After that, the lookahead stays at zero because we know
+  // the true content size and don't need extra room to scroll into.
+  bool _reachedBottom = false;
+
   @override
   void initState() {
     super.initState();
@@ -156,14 +166,14 @@ class _BrowserScrollableState extends State<BrowserScrollable> {
     }
   }
 
-  void _syncScrollFromBrowser(double offset) {
+  void _syncScrollFromBrowser(double scrollTop) {
     if (!widget.controller.hasClients) {
       return;
     }
 
     final ScrollPosition position = widget.controller.position;
     final double clampedOffset = clampDouble(
-      offset,
+      scrollTop,
       position.minScrollExtent,
       position.maxScrollExtent,
     );
@@ -180,6 +190,7 @@ class _BrowserScrollableState extends State<BrowserScrollable> {
   }
 
   bool _isBrowserDriving = false;
+  double _lastReportedHeight = 0;
 
   void _onScrollPositionChanged() {
     if (!widget.controller.hasClients || !_enabled) {
@@ -189,16 +200,11 @@ class _BrowserScrollableState extends State<BrowserScrollable> {
     final ScrollPosition position = widget.controller.position;
 
     // When the browser drives scrolling, it sends onScroll which calls
-    // jumpTo. We must not echo that back as a scrollTo or we'd create a
-    // feedback loop. Only sync the DOM scrollTop when Flutter is driving
+    // forcePixels. We must not echo that back as a scrollTo or we'd create
+    // a feedback loop. Only sync the DOM scrollTop when Flutter is driving
     // the scroll, e.g. programmatic animateTo.
     if (!_isBrowserDriving) {
-      final double clamped = clampDouble(
-        position.pixels,
-        position.minScrollExtent,
-        position.maxScrollExtent,
-      );
-      _channel.invokeMethod<void>('scrollTo', <String, Object?>{'offset': clamped});
+      _channel.invokeMethod<void>('scrollTo', <String, Object?>{'offset': position.pixels});
     }
 
     _reportContentExtent();
@@ -211,14 +217,36 @@ class _BrowserScrollableState extends State<BrowserScrollable> {
 
     final ScrollPosition position = widget.controller.position;
 
-    // During programmatic scrolls, pixels can temporarily exceed
-    // maxScrollExtent because the ListView recalculates lazily. Use
-    // whichever is larger so the DOM placeholder is always tall enough.
-    final double scrollableRange = position.maxScrollExtent > position.pixels
-        ? position.maxScrollExtent
-        : position.pixels;
-    final double totalHeight = position.viewportDimension + scrollableRange;
+    if (position.pixels > _maxReachedPixels) {
+      _maxReachedPixels = position.pixels;
+    }
 
+    if (position.pixels >= position.maxScrollExtent - 1.0) {
+      _reachedBottom = true;
+    }
+
+    // The placeholder height is based on the furthest point the user has
+    // scrolled to, plus a lookahead buffer so there's always room to
+    // scroll forward without hitting the placeholder bottom prematurely.
+    //
+    // Once the user has reached the actual content bottom, the lookahead
+    // stays at zero permanently. We know the true content size at that
+    // point, so re-adding lookahead when scrolling back up would create
+    // a dead zone where the scrollbar can scroll past the content.
+    final double lookahead;
+    if (_reachedBottom) {
+      lookahead = 0;
+    } else {
+      final double remainingContent = position.maxScrollExtent - _maxReachedPixels;
+      lookahead = clampDouble(remainingContent, 0, position.viewportDimension);
+    }
+    final double totalHeight = _maxReachedPixels + position.viewportDimension + lookahead;
+
+    if ((totalHeight - _lastReportedHeight).abs() < 1.0) {
+      return;
+    }
+
+    _lastReportedHeight = totalHeight;
     _channel.invokeMethod<void>('updateContentHeight', <String, Object?>{'height': totalHeight});
   }
 
