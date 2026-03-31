@@ -4,6 +4,7 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:meta/meta.dart' show experimental;
 
 import 'binding.dart';
 import 'framework.dart';
@@ -29,6 +30,7 @@ import 'scroll_position.dart';
 /// For desktop wheel events, the engine handles scroll chaining by
 /// selectively calling `preventDefault()` based on whether a nested
 /// scrollable consumed the event.
+@experimental
 class BrowserScrollPhysics extends ScrollPhysics {
   /// Creates scroll physics that delegates scrolling to the browser.
   const BrowserScrollPhysics({super.parent});
@@ -84,6 +86,7 @@ class BrowserScrollPhysics extends ScrollPhysics {
 ///   ),
 /// )
 /// ```
+@experimental
 class BrowserScrollable extends StatefulWidget {
   /// Creates a widget that enables browser-driven scrolling for its child.
   const BrowserScrollable({super.key, required this.controller, required this.child});

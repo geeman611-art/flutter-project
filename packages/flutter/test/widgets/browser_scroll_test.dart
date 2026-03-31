@@ -69,62 +69,7 @@ void main() {
   // enable message directly via the mock channel setup and checking that the
   // height reporting logic behaves correctly regardless of platform.
 
-  group('BrowserScrollPhysics', () {
-    test('applyTo returns BrowserScrollPhysics', () {
-      const physics = BrowserScrollPhysics();
-      final BrowserScrollPhysics result = physics.applyTo(const ClampingScrollPhysics());
-      expect(result, isA<BrowserScrollPhysics>());
-      expect(result.parent, isA<ClampingScrollPhysics>());
-    });
-
-    test('allowImplicitScrolling is false', () {
-      const physics = BrowserScrollPhysics();
-      expect(physics.allowImplicitScrolling, isFalse);
-    });
-
-    test('applyPhysicsToUserOffset passes offset through unchanged', () {
-      const physics = BrowserScrollPhysics();
-      // We need a ScrollMetrics object. Use a FixedScrollMetrics.
-      final metrics = FixedScrollMetrics(
-        minScrollExtent: 0,
-        maxScrollExtent: 1000,
-        pixels: 100,
-        viewportDimension: 600,
-        axisDirection: AxisDirection.down,
-        devicePixelRatio: 1.0,
-      );
-      expect(physics.applyPhysicsToUserOffset(metrics, 42.0), 42.0);
-      expect(physics.applyPhysicsToUserOffset(metrics, -10.0), -10.0);
-    });
-
-    test('applyBoundaryConditions returns full delta as overscroll', () {
-      const physics = BrowserScrollPhysics();
-      final metrics = FixedScrollMetrics(
-        minScrollExtent: 0,
-        maxScrollExtent: 1000,
-        pixels: 100,
-        viewportDimension: 600,
-        axisDirection: AxisDirection.down,
-        devicePixelRatio: 1.0,
-      );
-      // value=150 means the scroll wants to move to 150, pixels=100.
-      // All of that delta (50) should come back as overscroll.
-      expect(physics.applyBoundaryConditions(metrics, 150.0), 50.0);
-    });
-
-    test('createBallisticSimulation returns null (no fling)', () {
-      const physics = BrowserScrollPhysics();
-      final metrics = FixedScrollMetrics(
-        minScrollExtent: 0,
-        maxScrollExtent: 1000,
-        pixels: 100,
-        viewportDimension: 600,
-        axisDirection: AxisDirection.down,
-        devicePixelRatio: 1.0,
-      );
-      expect(physics.createBallisticSimulation(metrics, 500.0), isNull);
-    });
-  });
+  // BrowserScrollPhysics unit tests are in scroll_physics_test.dart.
 
   group('BrowserScrollable – placeholder height reporting', () {
     late _MockBrowserScrollChannel mock;
