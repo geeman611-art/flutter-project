@@ -4321,6 +4321,8 @@ class InputDecorationTheme extends InheritedTheme with Diagnosticable {
     Color? suffixIconColor,
     BoxConstraints? suffixIconConstraints,
     TextStyle? counterStyle,
+    TextStyle? composingStyle,
+    bool? enableInlinePrediction,
     bool? filled,
     Color? fillColor,
     BorderSide? activeIndicatorBorder,
@@ -4362,6 +4364,8 @@ class InputDecorationTheme extends InheritedTheme with Diagnosticable {
                      suffixIconColor ??
                      suffixIconConstraints ??
                      counterStyle ??
+                     composingStyle ??
+                     enableInlinePrediction ??
                      filled ??
                      fillColor ??
                      activeIndicatorBorder ??
@@ -4401,6 +4405,8 @@ class InputDecorationTheme extends InheritedTheme with Diagnosticable {
        _suffixIconColor = suffixIconColor,
        _suffixIconConstraints = suffixIconConstraints,
        _counterStyle = counterStyle,
+       _composingStyle = composingStyle,
+       _enableInlinePrediction = enableInlinePrediction,
        _filled = filled ?? false,
        _fillColor = fillColor,
        _activeIndicatorBorder = activeIndicatorBorder,
@@ -4442,6 +4448,8 @@ class InputDecorationTheme extends InheritedTheme with Diagnosticable {
   final Color? _suffixIconColor;
   final BoxConstraints? _suffixIconConstraints;
   final TextStyle? _counterStyle;
+  final TextStyle? _composingStyle;
+  final bool? _enableInlinePrediction;
   final bool _filled;
   final Color? _fillColor;
   final BorderSide? _activeIndicatorBorder;
@@ -4595,6 +4603,19 @@ class InputDecorationTheme extends InheritedTheme with Diagnosticable {
   /// please use the [InputDecorationThemeData.counterStyle] property in [data] instead.
   TextStyle? get counterStyle => _data != null ? _data.counterStyle : _counterStyle;
 
+  /// Overrides the default value for the composing/inline prediction text style.
+  ///
+  /// This property is obsolete and will be deprecated in a future release:
+  /// please use the [InputDecorationThemeData.composingStyle] property in [data] instead.
+  TextStyle? get composingStyle => _data != null ? _data.composingStyle : _composingStyle;
+
+  /// Overrides the default value for the composing/inline prediction enable state.
+  ///
+  /// This property is obsolete and will be deprecated in a future release:
+  /// please use the [InputDecorationThemeData.enableInlinePrediction] property in [data] instead.
+  bool? get enableInlinePrediction =>
+      _data != null ? _data.enableInlinePrediction : _enableInlinePrediction;
+
   /// Overrides the default value for [InputDecoration.filled].
   ///
   /// This property is obsolete and will be deprecated in a future release:
@@ -4713,6 +4734,8 @@ class InputDecorationTheme extends InheritedTheme with Diagnosticable {
         suffixIconColor: _suffixIconColor,
         suffixIconConstraints: _suffixIconConstraints,
         counterStyle: _counterStyle,
+        composingStyle: _composingStyle,
+        enableInlinePrediction: _enableInlinePrediction,
         filled: _filled,
         fillColor: _fillColor,
         activeIndicatorBorder: _activeIndicatorBorder,
@@ -4774,6 +4797,8 @@ class InputDecorationTheme extends InheritedTheme with Diagnosticable {
     Color? suffixIconColor,
     BoxConstraints? suffixIconConstraints,
     TextStyle? counterStyle,
+    TextStyle? composingStyle,
+    bool? enableInlinePrediction,
     bool? filled,
     Color? fillColor,
     BorderSide? activeIndicatorBorder,
@@ -4813,6 +4838,8 @@ class InputDecorationTheme extends InheritedTheme with Diagnosticable {
       suffixIconColor: suffixIconColor ?? this.suffixIconColor,
       suffixIconConstraints: suffixIconConstraints ?? this.suffixIconConstraints,
       counterStyle: counterStyle ?? this.counterStyle,
+      composingStyle: composingStyle ?? this.composingStyle,
+      enableInlinePrediction: enableInlinePrediction ?? this.enableInlinePrediction,
       filled: filled ?? this.filled,
       fillColor: fillColor ?? this.fillColor,
       activeIndicatorBorder: activeIndicatorBorder ?? this.activeIndicatorBorder,
@@ -4863,6 +4890,8 @@ class InputDecorationTheme extends InheritedTheme with Diagnosticable {
       suffixIconColor: suffixIconColor ?? other.suffixIconColor,
       suffixIconConstraints: suffixIconConstraints ?? other.suffixIconConstraints,
       counterStyle: counterStyle ?? other.counterStyle,
+      composingStyle: composingStyle ?? other.composingStyle,
+      enableInlinePrediction: enableInlinePrediction ?? other.enableInlinePrediction,
       fillColor: fillColor ?? other.fillColor,
       activeIndicatorBorder: activeIndicatorBorder ?? other.activeIndicatorBorder,
       outlineBorder: outlineBorder ?? other.outlineBorder,
@@ -4928,6 +4957,8 @@ class InputDecorationThemeData with Diagnosticable {
     this.suffixIconColor,
     this.suffixIconConstraints,
     this.counterStyle,
+    this.composingStyle,
+    this.enableInlinePrediction,
     this.filled = false,
     this.fillColor,
     this.activeIndicatorBorder,
@@ -5133,6 +5164,28 @@ class InputDecorationThemeData with Diagnosticable {
   ///
   /// If null, defaults to the [helperStyle].
   final TextStyle? counterStyle;
+
+  /// The default style for the composing and inline prediction region in text
+  /// inputs (e.g. IME composition, iOS 17+ inline suggestions).
+  ///
+  /// When set, [TextField] and other input widgets use this style when the
+  /// widget's own [composingStyle] is null. When null, the widget default
+  /// ([TextDecoration.underline]) is used.
+  ///
+  /// See also:
+  ///
+  ///  * [TextField.composingStyle], the per-widget override.
+  final TextStyle? composingStyle;
+
+  /// When non-null, provides the default for [TextField.enableInlinePrediction].
+  ///
+  /// When null, widgets use their own default (platform behavior when the widget
+  /// also omits it).
+  ///
+  /// See also:
+  ///
+  ///  * [TextField.enableInlinePrediction], the per-widget override.
+  final bool? enableInlinePrediction;
 
   /// If true the decoration's container is filled with [fillColor].
   ///
@@ -5406,6 +5459,8 @@ class InputDecorationThemeData with Diagnosticable {
     Color? suffixIconColor,
     BoxConstraints? suffixIconConstraints,
     TextStyle? counterStyle,
+    TextStyle? composingStyle,
+    bool? enableInlinePrediction,
     bool? filled,
     Color? fillColor,
     BorderSide? activeIndicatorBorder,
@@ -5445,6 +5500,8 @@ class InputDecorationThemeData with Diagnosticable {
       suffixIconColor: suffixIconColor ?? this.suffixIconColor,
       suffixIconConstraints: suffixIconConstraints ?? this.suffixIconConstraints,
       counterStyle: counterStyle ?? this.counterStyle,
+      composingStyle: composingStyle ?? this.composingStyle,
+      enableInlinePrediction: enableInlinePrediction ?? this.enableInlinePrediction,
       filled: filled ?? this.filled,
       fillColor: fillColor ?? this.fillColor,
       activeIndicatorBorder: activeIndicatorBorder ?? this.activeIndicatorBorder,
@@ -5497,6 +5554,8 @@ class InputDecorationThemeData with Diagnosticable {
       suffixIconColor: suffixIconColor ?? other.suffixIconColor,
       suffixIconConstraints: suffixIconConstraints ?? other.suffixIconConstraints,
       counterStyle: counterStyle ?? other.counterStyle,
+      composingStyle: composingStyle ?? other.composingStyle,
+      enableInlinePrediction: enableInlinePrediction ?? other.enableInlinePrediction,
       fillColor: fillColor ?? other.fillColor,
       activeIndicatorBorder: activeIndicatorBorder ?? other.activeIndicatorBorder,
       outlineBorder: outlineBorder ?? other.outlineBorder,
@@ -5537,6 +5596,8 @@ class InputDecorationThemeData with Diagnosticable {
     Object.hash(
       suffixIconConstraints,
       counterStyle,
+      composingStyle,
+      enableInlinePrediction,
       filled,
       fillColor,
       activeIndicatorBorder,
@@ -5584,6 +5645,8 @@ class InputDecorationThemeData with Diagnosticable {
         other.suffixIconColor == suffixIconColor &&
         other.suffixIconConstraints == suffixIconConstraints &&
         other.counterStyle == counterStyle &&
+        other.composingStyle == composingStyle &&
+        other.enableInlinePrediction == enableInlinePrediction &&
         other.floatingLabelBehavior == floatingLabelBehavior &&
         other.floatingLabelAlignment == floatingLabelAlignment &&
         other.filled == filled &&
@@ -5733,6 +5796,20 @@ class InputDecorationThemeData with Diagnosticable {
         'counterStyle',
         counterStyle,
         defaultValue: defaultTheme.counterStyle,
+      ),
+    );
+    properties.add(
+      DiagnosticsProperty<TextStyle?>(
+        'composingStyle',
+        composingStyle,
+        defaultValue: defaultTheme.composingStyle,
+      ),
+    );
+    properties.add(
+      DiagnosticsProperty<bool?>(
+        'enableInlinePrediction',
+        enableInlinePrediction,
+        defaultValue: defaultTheme.enableInlinePrediction,
       ),
     );
     properties.add(DiagnosticsProperty<bool>('filled', filled, defaultValue: defaultTheme.filled));
