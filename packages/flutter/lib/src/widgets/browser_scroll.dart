@@ -1,4 +1,4 @@
-// Copyright 2013 The Flutter Authors. All rights reserved.
+// Copyright 2014 The Flutter Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -73,10 +73,11 @@ class BrowserScrollPhysics extends ScrollPhysics {
 ///
 /// Example:
 /// ```dart
+/// final ScrollController controller = ScrollController();
 /// BrowserScrollable(
-///   controller: _scrollController,
+///   controller: controller,
 ///   child: ListView.builder(
-///     controller: _scrollController,
+///     controller: controller,
 ///     physics: const BrowserScrollPhysics(),
 ///     itemCount: 100,
 ///     itemBuilder: (context, index) => ListTile(title: Text('Item $index')),
