@@ -250,10 +250,14 @@ class _BrowserScrollableState extends State<BrowserScrollable> {
   }
 
   Future<dynamic> _handleEngineMessage(MethodCall call) async {
-    if (call.method == 'onScroll') {
-      final args = call.arguments as Map<dynamic, dynamic>;
-      final double offset = (args['offset'] as num).toDouble();
-      _syncScrollFromBrowser(offset);
+    switch (call.method) {
+      case 'onScroll':
+        final args = call.arguments as Map<dynamic, dynamic>;
+        final double offset = (args['offset'] as num).toDouble();
+        _syncScrollFromBrowser(offset);
+      case 'didEnable':
+        _enabled = true;
+        _reportContentExtent();
     }
   }
 
@@ -375,6 +379,21 @@ class _BrowserScrollableState extends State<BrowserScrollable> {
 
     if (notification is OverscrollNotification) {
       final double delta = notification.overscroll;
+
+      if (_effectiveController.hasClients) {
+        final ScrollPosition position = _effectiveController.position;
+        // When already at the top or bottom edge, the browser cannot scroll
+        // further. Let the notification bubble so that RefreshIndicator,
+        // load-more indicators, or other OverscrollNotification listeners
+        // can handle it.
+        if (delta < 0 && position.pixels <= position.minScrollExtent) {
+          return false;
+        }
+        if (delta > 0 && position.pixels >= position.maxScrollExtent) {
+          return false;
+        }
+      }
+
       if (delta.abs() > 0.5) {
         _channel.invokeMethod<void>('scrollBy', <String, Object?>{'delta': delta});
       }

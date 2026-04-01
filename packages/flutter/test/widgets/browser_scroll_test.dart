@@ -41,6 +41,18 @@ class _MockBrowserScrollChannel {
     );
   }
 
+  // Simulates the engine confirming that browser scrolling is enabled.
+  // In production, _enabled is set after the framework sends 'enable' and
+  // kIsWeb is true. In tests kIsWeb is false, so we trigger it from the
+  // engine side via the 'didEnable' message.
+  Future<void> simulateEnable() async {
+    await _channel.binaryMessenger.handlePlatformMessage(
+      'flutter/browser_scroll',
+      const JSONMethodCodec().encodeMethodCall(const MethodCall('didEnable')),
+      (_) {},
+    );
+  }
+
   void dispose() {
     _channel.setMockMethodCallHandler(null);
   }
@@ -345,6 +357,181 @@ void main() {
       }
       // PrimaryScrollController should not have been used.
       expect(primaryController.hasClients, isFalse);
+    });
+  });
+
+  group('BrowserScrollable – OverscrollNotification edge passthrough', () {
+    late _MockBrowserScrollChannel mock;
+    late ScrollController controller;
+
+    setUp(() {
+      mock = _MockBrowserScrollChannel();
+      controller = ScrollController();
+    });
+
+    tearDown(() {
+      controller.dispose();
+      mock.dispose();
+    });
+
+    testWidgets('consumes OverscrollNotification when not at edge', (tester) async {
+      final leaked = <OverscrollNotification>[];
+
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: NotificationListener<OverscrollNotification>(
+            onNotification: (OverscrollNotification n) {
+              leaked.add(n);
+              return false;
+            },
+            child: BrowserScrollable(
+              controller: controller,
+              child: ListView.builder(
+                controller: controller,
+                physics: const BrowserScrollPhysics(),
+                itemCount: 20,
+                itemBuilder: (context, index) =>
+                    SizedBox(height: 200.0, child: Text('Item $index')),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await mock.simulateEnable();
+      await tester.pump();
+
+      // Position in the middle of content.
+      await mock.simulateOnScroll(500);
+      await tester.pump();
+
+      leaked.clear();
+      mock.calls.clear();
+
+      // Dispatch an OverscrollNotification as if BrowserScrollPhysics
+      // produced overscroll while the position is mid-content.
+      final ScrollPosition pos = controller.position;
+      OverscrollNotification(
+        overscroll: 50.0,
+        metrics: pos.copyWith(),
+        context: tester.element(find.byType(ListView)),
+      ).dispatch(tester.element(find.byType(ListView)));
+      await tester.pump();
+
+      // BrowserScrollable should have consumed it (not leaked).
+      expect(leaked, isEmpty);
+      // And forwarded it to the engine.
+      final Iterable<MethodCall> scrollByCalls = mock.calls.where((c) => c.method == 'scrollBy');
+      expect(scrollByCalls, isNotEmpty);
+    });
+
+    testWidgets('lets OverscrollNotification bubble at top edge (pull-to-refresh)', (tester) async {
+      final leaked = <OverscrollNotification>[];
+
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: NotificationListener<OverscrollNotification>(
+            onNotification: (OverscrollNotification n) {
+              leaked.add(n);
+              return false;
+            },
+            child: BrowserScrollable(
+              controller: controller,
+              child: ListView.builder(
+                controller: controller,
+                physics: const BrowserScrollPhysics(),
+                itemCount: 20,
+                itemBuilder: (context, index) =>
+                    SizedBox(height: 200.0, child: Text('Item $index')),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await mock.simulateEnable();
+      await tester.pump();
+
+      // Position at the very top (minScrollExtent).
+      await mock.simulateOnScroll(0);
+      await tester.pump();
+
+      leaked.clear();
+      mock.calls.clear();
+
+      // Overscroll with negative delta = user pulling down at top.
+      final ScrollPosition pos = controller.position;
+      OverscrollNotification(
+        overscroll: -30.0,
+        metrics: pos.copyWith(),
+        context: tester.element(find.byType(ListView)),
+      ).dispatch(tester.element(find.byType(ListView)));
+      await tester.pump();
+
+      // Should have bubbled through for RefreshIndicator to see.
+      expect(leaked, hasLength(1));
+      expect(leaked.first.overscroll, -30.0);
+      // Should NOT have sent scrollBy to the engine.
+      final Iterable<MethodCall> scrollByCalls = mock.calls.where((c) => c.method == 'scrollBy');
+      expect(scrollByCalls, isEmpty);
+    });
+
+    testWidgets('lets OverscrollNotification bubble at bottom edge (load-more)', (tester) async {
+      final leaked = <OverscrollNotification>[];
+
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: NotificationListener<OverscrollNotification>(
+            onNotification: (OverscrollNotification n) {
+              leaked.add(n);
+              return false;
+            },
+            child: BrowserScrollable(
+              controller: controller,
+              child: ListView.builder(
+                controller: controller,
+                physics: const BrowserScrollPhysics(),
+                itemCount: 20,
+                itemBuilder: (context, index) =>
+                    SizedBox(height: 200.0, child: Text('Item $index')),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await mock.simulateEnable();
+      await tester.pump();
+
+      // Position at maxScrollExtent.
+      final double maxExtent = controller.position.maxScrollExtent;
+      await mock.simulateOnScroll(maxExtent);
+      await tester.pump();
+
+      leaked.clear();
+      mock.calls.clear();
+
+      // Overscroll with positive delta = user pushing past bottom.
+      final ScrollPosition pos = controller.position;
+      OverscrollNotification(
+        overscroll: 40.0,
+        metrics: pos.copyWith(),
+        context: tester.element(find.byType(ListView)),
+      ).dispatch(tester.element(find.byType(ListView)));
+      await tester.pump();
+
+      // Should have bubbled through for load-more indicators.
+      expect(leaked, hasLength(1));
+      expect(leaked.first.overscroll, 40.0);
+      // Should NOT have sent scrollBy to the engine.
+      final Iterable<MethodCall> scrollByCalls = mock.calls.where((c) => c.method == 'scrollBy');
+      expect(scrollByCalls, isEmpty);
     });
   });
 }
