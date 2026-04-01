@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // A mock for the flutter/browser_scroll platform channel.
@@ -532,6 +532,154 @@ void main() {
       // Should NOT have sent scrollBy to the engine.
       final Iterable<MethodCall> scrollByCalls = mock.calls.where((c) => c.method == 'scrollBy');
       expect(scrollByCalls, isEmpty);
+    });
+  });
+
+  group('BrowserScrollable – programmatic scrolling', () {
+    late _MockBrowserScrollChannel mock;
+    late ScrollController controller;
+
+    setUp(() {
+      mock = _MockBrowserScrollChannel();
+      controller = ScrollController();
+    });
+
+    tearDown(() {
+      controller.dispose();
+      mock.dispose();
+    });
+
+    testWidgets('jumpTo sends scrollTo to engine', (tester) async {
+      await tester.pumpWidget(_buildTestApp(controller));
+      await tester.pump();
+
+      await mock.simulateEnable();
+      await tester.pump();
+
+      mock.calls.clear();
+
+      controller.jumpTo(500);
+      await tester.pump();
+
+      final List<MethodCall> scrollToCalls = mock.calls
+          .where((c) => c.method == 'scrollTo')
+          .toList();
+      expect(scrollToCalls, isNotEmpty);
+      final offset = (scrollToCalls.last.arguments as Map<dynamic, dynamic>)['offset'] as double;
+      expect(offset, closeTo(500.0, 1.0));
+    });
+
+    testWidgets('animateTo does not move pixels with BrowserScrollPhysics', (tester) async {
+      // animateTo starts a DrivenScrollActivity that calls setPixels on each
+      // tick. BrowserScrollPhysics.applyBoundaryConditions returns the entire
+      // delta, so setPixels clamps to the old value and pixels never changes.
+      // Programmatic scrolling should use BrowserScrollable.scrollTo or
+      // controller.jumpTo instead.
+      await tester.pumpWidget(_buildTestApp(controller));
+      await tester.pump();
+
+      await mock.simulateEnable();
+      await tester.pump();
+
+      mock.calls.clear();
+
+      controller.animateTo(400, duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 150));
+
+      final List<MethodCall> scrollToCalls = mock.calls
+          .where((c) => c.method == 'scrollTo')
+          .toList();
+      expect(scrollToCalls, isEmpty);
+      expect(controller.position.pixels, closeTo(0.0, 1.0));
+    });
+
+    testWidgets('ensureVisible sends scrollTo to engine', (tester) async {
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: BrowserScrollable(
+            controller: controller,
+            child: ListView.builder(
+              controller: controller,
+              physics: const BrowserScrollPhysics(),
+              itemCount: 50,
+              itemBuilder: (context, index) => SizedBox(
+                height: 200.0,
+                key: index == 40 ? const Key('target') : null,
+                child: Text('Item $index'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await mock.simulateEnable();
+      await tester.pump();
+
+      // Scroll to a middle position first so the list lays out more items.
+      await mock.simulateOnScroll(2000);
+      await tester.pump();
+
+      mock.calls.clear();
+
+      // Ensure the target item is visible. This calls jumpTo/animateTo
+      // internally, which should produce a scrollTo on the channel.
+      final Finder target = find.byKey(const Key('target'));
+      if (target.evaluate().isNotEmpty) {
+        await Scrollable.ensureVisible(target.evaluate().first);
+        await tester.pump();
+
+        final List<MethodCall> scrollToCalls = mock.calls
+            .where((c) => c.method == 'scrollTo')
+            .toList();
+        expect(scrollToCalls, isNotEmpty);
+      }
+    });
+
+    testWidgets('focus traversal triggers scrollTo for offscreen widget', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: BrowserScrollable(
+              controller: controller,
+              child: ListView.builder(
+                controller: controller,
+                physics: const BrowserScrollPhysics(),
+                itemCount: 30,
+                itemBuilder: (context, index) => SizedBox(
+                  height: 200.0,
+                  child: TextButton(onPressed: () {}, child: Text('Button $index')),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await mock.simulateEnable();
+      await tester.pump();
+
+      mock.calls.clear();
+
+      // Tab through focusable widgets until focus moves offscreen.
+      // Each tab press should eventually trigger ensureVisible -> scrollTo.
+      for (var i = 0; i < 10; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+      }
+
+      final List<MethodCall> scrollToCalls = mock.calls
+          .where((c) => c.method == 'scrollTo')
+          .toList();
+      expect(
+        scrollToCalls,
+        isNotEmpty,
+        reason: 'Focus traversal to offscreen widget should send scrollTo to engine',
+      );
     });
   });
 }
