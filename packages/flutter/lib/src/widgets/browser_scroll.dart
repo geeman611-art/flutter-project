@@ -79,18 +79,60 @@ class BrowserScrollPhysics extends ScrollPhysics {
 /// scrollables work in Flutter, where a [ListView] inside a [Scaffold]
 /// attaches to the primary controller without any explicit setup.
 ///
-/// Example with explicit controller:
+/// Use an explicit controller when you need to programmatically control the
+/// scroll position, for example to jump to the top or animate to a specific
+/// item:
+///
 /// ```dart
-/// final ScrollController controller = ScrollController();
-/// BrowserScrollable(
-///   controller: controller,
-///   child: ListView.builder(
-///     controller: controller,
-///     physics: const BrowserScrollPhysics(),
-///     itemCount: 100,
-///     itemBuilder: (context, index) => ListTile(title: Text('Item $index')),
-///   ),
-/// )
+/// class MyPage extends StatefulWidget {
+///   const MyPage({super.key});
+///
+///   @override
+///   State<MyPage> createState() => _MyPageState();
+/// }
+///
+/// class _MyPageState extends State<MyPage> {
+///   final ScrollController controller = ScrollController();
+///
+///   void scrollToTop() {
+///     controller.animateTo(
+///       0,
+///       duration: const Duration(milliseconds: 300),
+///       curve: Curves.easeOut,
+///     );
+///   }
+///
+///   @override
+///   void dispose() {
+///     controller.dispose();
+///     super.dispose();
+///   }
+///
+///   @override
+///   Widget build(BuildContext context) {
+///     return BrowserScrollable(
+///       controller: controller,
+///       child: Stack(
+///         children: <Widget>[
+///           ListView.builder(
+///             controller: controller,
+///             physics: const BrowserScrollPhysics(),
+///             itemCount: 100,
+///             itemBuilder: (context, index) => ListTile(title: Text('Item $index')),
+///           ),
+///           Positioned(
+///             bottom: 16,
+///             right: 16,
+///             child: FloatingActionButton(
+///               onPressed: scrollToTop,
+///               child: const Icon(Icons.arrow_upward),
+///             ),
+///           ),
+///         ],
+///       ),
+///     );
+///   }
+/// }
 /// ```
 ///
 /// Example using PrimaryScrollController (simpler):
