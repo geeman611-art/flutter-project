@@ -61,6 +61,25 @@ Widget _buildTestApp(ScrollController controller) {
   );
 }
 
+Widget _buildTestAppWithPrimaryController(ScrollController primaryController) {
+  return Directionality(
+    textDirection: TextDirection.ltr,
+    child: MediaQuery(
+      data: const MediaQueryData(),
+      child: PrimaryScrollController(
+        controller: primaryController,
+        child: BrowserScrollable(
+          child: ListView.builder(
+            physics: const BrowserScrollPhysics(),
+            itemCount: 20,
+            itemBuilder: (context, index) => SizedBox(height: 200.0, child: Text('Item $index')),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 void main() {
   // BrowserScrollable only enables browser scrolling on the web. Override
   // kIsWeb for these tests so the enable/disable channel calls fire.
@@ -246,6 +265,86 @@ void main() {
       if (controller2.hasClients) {
         expect(controller2.position.pixels, closeTo(100.0, 1.0));
       }
+    });
+  });
+
+  group('BrowserScrollable – PrimaryScrollController fallback', () {
+    late _MockBrowserScrollChannel mock;
+    late ScrollController primaryController;
+
+    setUp(() {
+      mock = _MockBrowserScrollChannel();
+      primaryController = ScrollController();
+    });
+
+    tearDown(() {
+      primaryController.dispose();
+      mock.dispose();
+    });
+
+    testWidgets('uses PrimaryScrollController when no controller is provided', (tester) async {
+      await tester.pumpWidget(_buildTestAppWithPrimaryController(primaryController));
+      await tester.pump();
+
+      await mock.simulateOnScroll(300);
+      await tester.pump();
+
+      if (primaryController.hasClients) {
+        expect(primaryController.position.pixels, closeTo(300.0, 1.0));
+      }
+    });
+
+    testWidgets('reports content height using PrimaryScrollController', (tester) async {
+      await tester.pumpWidget(_buildTestAppWithPrimaryController(primaryController));
+      await tester.pump();
+
+      await mock.simulateOnScroll(0);
+      await tester.pump();
+
+      final double viewport = tester.getSize(find.byType(ListView)).height;
+      final List<double> heights = mock.reportedHeights;
+      if (heights.isNotEmpty) {
+        expect(heights.last, closeTo(viewport * 2, 2.0));
+      }
+    });
+
+    testWidgets('explicit controller takes precedence over PrimaryScrollController', (
+      tester,
+    ) async {
+      final explicitController = ScrollController();
+      addTearDown(explicitController.dispose);
+
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: MediaQuery(
+            data: const MediaQueryData(),
+            child: PrimaryScrollController(
+              controller: primaryController,
+              child: BrowserScrollable(
+                controller: explicitController,
+                child: ListView.builder(
+                  controller: explicitController,
+                  physics: const BrowserScrollPhysics(),
+                  itemCount: 20,
+                  itemBuilder: (context, index) =>
+                      SizedBox(height: 200.0, child: Text('Item $index')),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await mock.simulateOnScroll(200);
+      await tester.pump();
+
+      if (explicitController.hasClients) {
+        expect(explicitController.position.pixels, closeTo(200.0, 1.0));
+      }
+      // PrimaryScrollController should not have been used.
+      expect(primaryController.hasClients, isFalse);
     });
   });
 }

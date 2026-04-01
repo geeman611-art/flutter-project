@@ -9,6 +9,7 @@ import 'package:meta/meta.dart' show experimental;
 import 'binding.dart';
 import 'framework.dart';
 import 'notification_listener.dart';
+import 'primary_scroll_controller.dart';
 import 'scroll_configuration.dart';
 import 'scroll_controller.dart';
 import 'scroll_metrics.dart';
@@ -73,7 +74,12 @@ class BrowserScrollPhysics extends ScrollPhysics {
 ///    knows how much content is scrollable
 /// 4. Disables browser scrolling on unmount
 ///
-/// Example:
+/// If no [controller] is provided, the widget automatically uses the
+/// [PrimaryScrollController] from the widget tree. This matches how most
+/// scrollables work in Flutter, where a [ListView] inside a [Scaffold]
+/// attaches to the primary controller without any explicit setup.
+///
+/// Example with explicit controller:
 /// ```dart
 /// final ScrollController controller = ScrollController();
 /// BrowserScrollable(
@@ -86,15 +92,28 @@ class BrowserScrollPhysics extends ScrollPhysics {
 ///   ),
 /// )
 /// ```
+///
+/// Example using PrimaryScrollController (simpler):
+/// ```dart
+/// BrowserScrollable(
+///   child: ListView.builder(
+///     physics: const BrowserScrollPhysics(),
+///     itemCount: 100,
+///     itemBuilder: (context, index) => ListTile(title: Text('Item $index')),
+///   ),
+/// )
+/// ```
 @experimental
 class BrowserScrollable extends StatefulWidget {
   /// Creates a widget that enables browser-driven scrolling for its child.
-  const BrowserScrollable({super.key, required this.controller, required this.child});
+  const BrowserScrollable({super.key, this.controller, required this.child});
 
-  /// The scroll controller for the outermost scrollable. This controller
-  /// is used to sync the browser's scroll position with Flutter and to
-  /// read content extent for reporting to the engine.
-  final ScrollController controller;
+  /// The scroll controller for the outermost scrollable.
+  ///
+  /// If null, the [PrimaryScrollController] from the widget tree is used.
+  /// This controller is used to sync the browser's scroll position with
+  /// Flutter and to read content extent for reporting to the engine.
+  final ScrollController? controller;
 
   /// The child widget, typically a scrollable like [ListView].
   final Widget child;
@@ -105,6 +124,7 @@ class BrowserScrollable extends StatefulWidget {
 
 class _BrowserScrollableState extends State<BrowserScrollable> {
   static const MethodChannel _channel = MethodChannel('flutter/browser_scroll', JSONMethodCodec());
+  static final Set<TargetPlatform> _allPlatforms = TargetPlatform.values.toSet();
 
   bool _enabled = false;
 
@@ -118,13 +138,33 @@ class _BrowserScrollableState extends State<BrowserScrollable> {
   // the true content size and don't need extra room to scroll into.
   bool _reachedBottom = false;
 
+  ScrollController? _fallbackController;
+  ScrollController? _attachedController;
+
+  ScrollController get _effectiveController {
+    if (widget.controller != null) {
+      return widget.controller!;
+    }
+    return _fallbackController ??= PrimaryScrollController.of(context);
+  }
+
   @override
   void initState() {
     super.initState();
     _channel.setMethodCallHandler(_handleEngineMessage);
-    widget.controller.addListener(_onScrollPositionChanged);
+  }
 
-    if (kIsWeb) {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final ScrollController controller = _effectiveController;
+    if (_attachedController != controller) {
+      _attachedController?.removeListener(_onScrollPositionChanged);
+      controller.addListener(_onScrollPositionChanged);
+      _attachedController = controller;
+    }
+
+    if (kIsWeb && !_enabled) {
       _enableBrowserScrolling();
     }
   }
@@ -133,14 +173,19 @@ class _BrowserScrollableState extends State<BrowserScrollable> {
   void didUpdateWidget(BrowserScrollable oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.controller != widget.controller) {
-      oldWidget.controller.removeListener(_onScrollPositionChanged);
-      widget.controller.addListener(_onScrollPositionChanged);
+      _fallbackController = null;
+      final ScrollController controller = _effectiveController;
+      _attachedController?.removeListener(_onScrollPositionChanged);
+      controller.addListener(_onScrollPositionChanged);
+      _attachedController = controller;
     }
   }
 
   @override
   void dispose() {
-    widget.controller.removeListener(_onScrollPositionChanged);
+    _attachedController?.removeListener(_onScrollPositionChanged);
+    _attachedController = null;
+    _fallbackController = null;
     if (_enabled) {
       _disableBrowserScrolling();
     }
@@ -171,11 +216,11 @@ class _BrowserScrollableState extends State<BrowserScrollable> {
   }
 
   void _syncScrollFromBrowser(double scrollTop) {
-    if (!widget.controller.hasClients) {
+    if (!_effectiveController.hasClients) {
       return;
     }
 
-    final ScrollPosition position = widget.controller.position;
+    final ScrollPosition position = _effectiveController.position;
     final double clampedOffset = clampDouble(
       scrollTop,
       position.minScrollExtent,
@@ -197,11 +242,11 @@ class _BrowserScrollableState extends State<BrowserScrollable> {
   double _lastReportedHeight = 0;
 
   void _onScrollPositionChanged() {
-    if (!widget.controller.hasClients || !_enabled) {
+    if (!_effectiveController.hasClients || !_enabled) {
       return;
     }
 
-    final ScrollPosition position = widget.controller.position;
+    final ScrollPosition position = _effectiveController.position;
 
     // When the browser drives scrolling, it sends onScroll which calls
     // forcePixels. We must not echo that back as a scrollTo or we'd create
@@ -215,11 +260,11 @@ class _BrowserScrollableState extends State<BrowserScrollable> {
   }
 
   void _reportContentExtent() {
-    if (!widget.controller.hasClients || !_enabled) {
+    if (!_effectiveController.hasClients || !_enabled) {
       return;
     }
 
-    final ScrollPosition position = widget.controller.position;
+    final ScrollPosition position = _effectiveController.position;
 
     if (position.pixels > _maxReachedPixels) {
       _maxReachedPixels = position.pixels;
@@ -270,9 +315,13 @@ class _BrowserScrollableState extends State<BrowserScrollable> {
   Widget build(BuildContext context) {
     return NotificationListener<ScrollNotification>(
       onNotification: _handleScrollNotification,
-      child: ScrollConfiguration(
-        behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
-        child: widget.child,
+      child: PrimaryScrollController(
+        controller: _effectiveController,
+        automaticallyInheritForPlatforms: _allPlatforms,
+        child: ScrollConfiguration(
+          behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+          child: widget.child,
+        ),
       ),
     );
   }
