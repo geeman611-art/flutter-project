@@ -8,7 +8,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../rendering/rendering_tester.dart';
+import 'rendering_test_utils.dart';
 import '../widgets/semantics_tester.dart';
 
 class SpyFixedExtentScrollController extends FixedExtentScrollController {
