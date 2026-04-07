@@ -26,6 +26,7 @@ import 'editable_text_tester.dart';
 import 'editable_text_utils.dart';
 import 'live_text_utils.dart';
 import 'semantics_tester.dart';
+import 'widgets_app_tester.dart';
 
 Matcher matchesMethodCall(String method, {dynamic args}) =>
     _MatchesMethodCall(method, arguments: args == null ? null : wrapMatcher(args));
@@ -5302,9 +5303,9 @@ void main() {
     controller.text = familyEmoji;
 
     await tester.pumpWidget(
-      MaterialApp(
+      TestWidgetsApp(
         home: EditableText(
-          backgroundCursorColor: Colors.grey,
+          backgroundCursorColor: const Color(0xFF000000),
           controller: controller,
           obscureText: true,
           focusNode: focusNode,
@@ -5327,9 +5328,9 @@ void main() {
     controller.text = mixedText;
 
     await tester.pumpWidget(
-      MaterialApp(
+      TestWidgetsApp(
         home: EditableText(
-          backgroundCursorColor: Colors.grey,
+          backgroundCursorColor: const Color(0xFF000000),
           controller: controller,
           obscureText: true,
           focusNode: focusNode,
