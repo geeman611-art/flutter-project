@@ -617,7 +617,8 @@ class ScrollableState extends State<Scrollable>
   // BROWSER-DRIVEN SCROLLING
 
   // Only one ScrollableState should own the browser-scroll channel at a time.
-  // This tracks which instance is active so we can assert against conflicts.
+  // The first instance to claim it wins; nested scrollables that inherit
+  // enableBrowserScrolling from an ancestor ScrollConfiguration are skipped.
   static ScrollableState? _activeBrowserScrollInstance;
 
   bool _browserScrollEnabled = false;
@@ -627,27 +628,16 @@ class ScrollableState extends State<Scrollable>
   bool _reachedBottom = false;
   double _lastReportedHeight = 0;
 
-  bool _hasBrowserScrollPhysics() {
-    ScrollPhysics? p = _physics;
-    while (p != null) {
-      if (p is BrowserScrollPhysics) {
-        return true;
-      }
-      p = p.parent;
-    }
-    return false;
-  }
-
   void _setupBrowserScroll() {
-    final bool shouldBeActive = _hasBrowserScrollPhysics();
+    final bool shouldBeActive = _configuration.enableBrowserScrolling;
 
     if (shouldBeActive && !_browserScrollActive) {
-      assert(
-        _activeBrowserScrollInstance == null || _activeBrowserScrollInstance == this,
-        'Two ScrollableState instances are trying to own the browser-scroll '
-        'channel simultaneously. Only the outermost scrollable should use '
-        'BrowserScrollPhysics.',
-      );
+      // Only the first ScrollableState to claim the channel wins. Nested
+      // scrollables that inherit enableBrowserScrolling from their ancestor
+      // ScrollConfiguration are silently skipped.
+      if (_activeBrowserScrollInstance != null && _activeBrowserScrollInstance != this) {
+        return;
+      }
       _activeBrowserScrollInstance = this;
       _browserScrollActive = true;
       browserScrollChannel.setMethodCallHandler(_handleBrowserScrollMessage);
@@ -783,8 +773,12 @@ class ScrollableState extends State<Scrollable>
   // Only call this from places that will definitely trigger a rebuild.
   void _updatePosition() {
     _configuration = widget.scrollBehavior ?? ScrollConfiguration.of(context);
-    final ScrollPhysics? physicsFromWidget =
+    ScrollPhysics? physicsFromWidget =
         widget.physics ?? widget.scrollBehavior?.getScrollPhysics(context);
+    if (_configuration.enableBrowserScrolling &&
+        (_activeBrowserScrollInstance == null || _activeBrowserScrollInstance == this)) {
+      physicsFromWidget = const BrowserScrollPhysics().applyTo(physicsFromWidget);
+    }
     _physics = _configuration.getScrollPhysics(context);
     _physics = physicsFromWidget?.applyTo(_physics) ?? _physics;
 

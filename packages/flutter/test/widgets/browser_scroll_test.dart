@@ -60,7 +60,6 @@ Widget _buildTestApp(ScrollController controller) {
       child: BrowserScrollable(
         child: ListView.builder(
           controller: controller,
-          physics: const BrowserScrollPhysics(),
           itemCount: 20,
           itemBuilder: (context, index) => SizedBox(height: 200.0, child: Text('Item $index')),
         ),
@@ -77,7 +76,6 @@ Widget _buildTestAppNoPrimaryNoController() {
       child: BrowserScrollable(
         child: ListView.builder(
           primary: false,
-          physics: const BrowserScrollPhysics(),
           itemCount: 20,
           itemBuilder: (context, index) => SizedBox(height: 200.0, child: Text('Item $index')),
         ),
@@ -231,9 +229,7 @@ void main() {
       }
     });
 
-    testWidgets('switching from BrowserScrollPhysics to ClampingScrollPhysics tears down channel', (
-      tester,
-    ) async {
+    testWidgets('disabling enableBrowserScrolling tears down channel', (tester) async {
       await tester.pumpWidget(_buildTestApp(controller));
       await tester.pump();
 
@@ -248,16 +244,16 @@ void main() {
       final int scrollToCountBefore = mock.calls.where((c) => c.method == 'scrollTo').length;
       expect(scrollToCountBefore, greaterThan(0));
 
-      // Rebuild with ClampingScrollPhysics instead of BrowserScrollPhysics.
+      // Rebuild with enableBrowserScrolling: false.
       await tester.pumpWidget(
         Directionality(
           textDirection: TextDirection.ltr,
           child: MediaQuery(
             data: const MediaQueryData(),
-            child: BrowserScrollable(
+            child: ScrollConfiguration(
+              behavior: const ScrollBehavior().copyWith(enableBrowserScrolling: false),
               child: ListView.builder(
                 controller: controller,
-                physics: const ClampingScrollPhysics(),
                 itemCount: 20,
                 itemBuilder: (context, index) =>
                     SizedBox(height: 200.0, child: Text('Item $index')),
@@ -278,7 +274,7 @@ void main() {
       expect(
         scrollToCountAfter,
         0,
-        reason: 'After switching away from BrowserScrollPhysics, no scrollTo should be sent',
+        reason: 'After disabling enableBrowserScrolling, no scrollTo should be sent',
       );
 
       // Simulate an onScroll from the browser; it should not move the position
@@ -363,7 +359,6 @@ void main() {
               child: BrowserScrollable(
                 child: ListView.builder(
                   controller: controller,
-                  physics: const BrowserScrollPhysics(),
                   itemCount: 20,
                   itemBuilder: (context, index) =>
                       SizedBox(height: 200.0, child: Text('Item $index')),
@@ -413,7 +408,6 @@ void main() {
               child: BrowserScrollable(
                 child: ListView.builder(
                   controller: controller,
-                  physics: const BrowserScrollPhysics(),
                   itemCount: 20,
                   itemBuilder: (context, index) =>
                       SizedBox(height: 200.0, child: Text('Item $index')),
@@ -464,7 +458,6 @@ void main() {
               child: BrowserScrollable(
                 child: ListView.builder(
                   controller: controller,
-                  physics: const BrowserScrollPhysics(),
                   itemCount: 20,
                   itemBuilder: (context, index) =>
                       SizedBox(height: 200.0, child: Text('Item $index')),
@@ -536,10 +529,11 @@ void main() {
     });
 
     // animateTo starts a DrivenScrollActivity that calls setPixels on each
-    // tick. BrowserScrollPhysics.applyBoundaryConditions returns the entire
+    // tick. When enableBrowserScrolling is true, BrowserScrollPhysics is
+    // applied automatically; its applyBoundaryConditions returns the entire
     // delta as overscroll, so setPixels clamps to the old value and pixels
     // never changes. Use BrowserScrollable.scrollTo or jumpTo instead.
-    testWidgets('animateTo does not move pixels with BrowserScrollPhysics', (tester) async {
+    testWidgets('animateTo does not move pixels with enableBrowserScrolling', (tester) async {
       await tester.pumpWidget(_buildTestApp(controller));
       await tester.pump();
 
@@ -569,7 +563,6 @@ void main() {
             child: BrowserScrollable(
               child: ListView.builder(
                 controller: controller,
-                physics: const BrowserScrollPhysics(),
                 itemCount: 50,
                 itemBuilder: (context, index) => SizedBox(
                   height: 200.0,
@@ -617,7 +610,6 @@ void main() {
           builder: (context, child) => BrowserScrollable(
             child: ListView.builder(
               controller: controller,
-              physics: const BrowserScrollPhysics(),
               itemCount: 30,
               itemBuilder: (context, index) => Focus(
                 focusNode: focusNodes[index],
@@ -651,6 +643,114 @@ void main() {
         isNotEmpty,
         reason: 'Focus traversal to offscreen widget should send scrollTo to engine',
       );
+    });
+  });
+
+  group('ScrollableState browser-scroll – nested scrollable isolation', () {
+    late _MockBrowserScrollChannel mock;
+    late ScrollController outerController;
+
+    setUp(() {
+      mock = _MockBrowserScrollChannel();
+      outerController = ScrollController();
+    });
+
+    tearDown(() {
+      outerController.dispose();
+      mock.dispose();
+    });
+
+    testWidgets('only the outermost scrollable owns the channel', (tester) async {
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: MediaQuery(
+            data: const MediaQueryData(),
+            child: BrowserScrollable(
+              child: ListView(
+                controller: outerController,
+                children: [
+                  const SizedBox(height: 100),
+                  SizedBox(
+                    height: 300,
+                    child: ListView.builder(
+                      itemCount: 50,
+                      itemBuilder: (context, index) =>
+                          SizedBox(height: 40, child: Text('Inner $index')),
+                    ),
+                  ),
+                  const SizedBox(height: 1000),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await mock.simulateEnable();
+      await tester.pump();
+
+      mock.calls.clear();
+
+      // Programmatic scroll on the outer controller should send scrollTo.
+      outerController.jumpTo(200);
+      await tester.pump();
+
+      final List<MethodCall> scrollToCalls = mock.calls
+          .where((c) => c.method == 'scrollTo')
+          .toList();
+      expect(scrollToCalls, isNotEmpty);
+      final offset =
+          (scrollToCalls.last.arguments as Map<dynamic, dynamic>)['offset'] as double;
+      expect(offset, closeTo(200.0, 1.0));
+    });
+
+    testWidgets('inner scrollable scrolls independently without BrowserScrollPhysics', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: MediaQuery(
+            data: const MediaQueryData(),
+            child: BrowserScrollable(
+              child: ListView(
+                controller: outerController,
+                children: [
+                  const SizedBox(height: 100),
+                  SizedBox(
+                    height: 300,
+                    child: ListView.builder(
+                      itemCount: 50,
+                      itemBuilder: (context, index) =>
+                          SizedBox(height: 40, child: Text('Inner $index')),
+                    ),
+                  ),
+                  const SizedBox(height: 1000),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await mock.simulateEnable();
+      await tester.pump();
+
+      // Find the inner Scrollable and verify it can scroll normally.
+      final Finder innerListFinder = find.byType(Scrollable).at(1);
+      final ScrollableState innerScrollable = tester.state(innerListFinder);
+      final ScrollPosition innerPos = innerScrollable.position;
+
+      expect(innerPos.pixels, 0.0);
+
+      // The inner scrollable should be able to scroll via its own physics.
+      innerPos.jumpTo(100);
+      await tester.pump();
+
+      expect(innerPos.pixels, closeTo(100.0, 1.0));
     });
   });
 }

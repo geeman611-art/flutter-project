@@ -70,13 +70,13 @@ class BrowserScrollPhysics extends ScrollPhysics {
   }
 }
 
-/// A wrapper widget that forwards touch-driven overscroll to the browser
-/// and disables Flutter scrollbars for the outermost scrollable.
+/// A wrapper widget that enables browser-driven scrolling, forwards
+/// touch-driven overscroll to the browser, and disables Flutter scrollbars.
 ///
-/// Place this above the outermost scrollable that uses [BrowserScrollPhysics].
-/// The core browser-scroll channel communication is handled automatically
-/// by [ScrollableState] when it detects [BrowserScrollPhysics]. This widget
-/// adds two things on top:
+/// Place this above the outermost scrollable. It sets
+/// [ScrollBehavior.enableBrowserScrolling] to true, which causes
+/// [ScrollableState] to set up the browser-scroll channel and automatically
+/// apply [BrowserScrollPhysics]. This widget adds two things on top:
 ///
 /// 1. Catches [OverscrollNotification] from touch drag gestures and forwards
 ///    them to the browser via `scrollBy`, except at the edges where
@@ -87,7 +87,6 @@ class BrowserScrollPhysics extends ScrollPhysics {
 /// ```dart
 /// BrowserScrollable(
 ///   child: ListView.builder(
-///     physics: const BrowserScrollPhysics(),
 ///     itemCount: 100,
 ///     itemBuilder: (context, index) => ListTile(title: Text('Item $index')),
 ///   ),
@@ -101,12 +100,20 @@ class BrowserScrollable extends StatelessWidget {
   /// The child widget, typically a scrollable like [ListView].
   final Widget child;
 
-  /// Scrolls to the given offset using the browser's native smooth scrolling.
+  /// Scrolls to the given offset using the browser's native scroll mechanism.
   ///
-  /// Unlike [ScrollController.animateTo], this delegates the animation
-  /// entirely to the browser, avoiding issues with lazy layout causing
-  /// [maxScrollExtent] to change mid-animation. The browser clamps the
-  /// scroll to the actual content height automatically.
+  /// Unlike [ScrollController.animateTo], this delegates entirely to the
+  /// browser, avoiding issues with lazy layout causing [maxScrollExtent] to
+  /// change mid-animation. The browser clamps the scroll to the actual content
+  /// height automatically.
+  ///
+  /// Set [smooth] to `false` for an instant jump with no animation. Defaults
+  /// to `true` for smooth scrolling.
+  ///
+  /// Note: [ScrollController.animateTo] does not work with
+  /// [BrowserScrollPhysics] because [BrowserScrollPhysics.applyBoundaryConditions]
+  /// returns the entire delta as overscroll, so [ScrollPosition.pixels] never
+  /// moves. Use this method instead.
   static Future<void> scrollTo(double offset, {bool smooth = true}) async {
     await browserScrollChannel.invokeMethod<void>(
       smooth ? 'smoothScrollTo' : 'scrollTo',
@@ -119,7 +126,9 @@ class BrowserScrollable extends StatelessWidget {
     return NotificationListener<OverscrollNotification>(
       onNotification: _handleOverscrollNotification,
       child: ScrollConfiguration(
-        behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+        behavior: ScrollConfiguration.of(
+          context,
+        ).copyWith(scrollbars: false, enableBrowserScrolling: true),
         child: child,
       ),
     );
