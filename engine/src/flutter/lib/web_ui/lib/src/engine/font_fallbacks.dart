@@ -14,6 +14,12 @@ abstract class FallbackFontRegistry {
   void updateFallbackFontFamilies(List<String> families);
 }
 
+const int _kVariationSelectorStart = 0xFE00; // VS1
+const int _kVariationSelectorEnd = 0xFE0F; // VS16
+const int _kTextPresentationSelector = 0xFE0E; // VS15
+const String _kNotoColorEmojiPrefix = 'Noto Color Emoji';
+const String _kNotoEmoji = 'Noto Emoji';
+
 bool _isNotoSansSC(NotoFont font) => font.name.startsWith('Noto Sans SC');
 bool _isNotoSansTC(NotoFont font) => font.name.startsWith('Noto Sans TC');
 bool _isNotoSansHK(NotoFont font) => font.name.startsWith('Noto Sans HK');
@@ -153,7 +159,7 @@ class FontFallbackManager {
   void registerFallbackFont(String family) {
     // Insert emoji font before all other fallback fonts so we use the emoji
     // whenever it's available.
-    if (family.startsWith('Noto Color Emoji') || family == 'Noto Emoji') {
+    if (family.startsWith(_kNotoColorEmojiPrefix) || family == _kNotoEmoji) {
       if (globalFontFallbacks.first == 'Roboto') {
         globalFontFallbacks.insert(1, family);
       } else {
@@ -180,11 +186,26 @@ class FontFallbackManager {
     final requiredComponents = <FallbackFontComponent>[];
     final candidateFonts = <NotoFont>[];
 
+    var hasColorEmoji = false;
+    var hasTextEmoji = false;
+
     // Collect the components that cover the code points.
     for (final codePoint in codePoints) {
       final FallbackFontComponent component = codePointToComponents.lookup(codePoint);
       if (component.fonts.isEmpty) {
-        missingCodePoints.add(codePoint);
+        // Variation Selectors have no font entry in the fallback data,
+        // but are handled by the text shaper as part of emoji sequences.
+        // Skip them so they don't trigger a missing-font warning.
+        if (_kVariationSelectorStart <= codePoint && codePoint <= _kVariationSelectorEnd) {
+          switch (codePoint) {
+            case _kTextPresentationSelector:
+              hasTextEmoji = true;
+            case _kVariationSelectorEnd:
+              hasColorEmoji = true;
+          }
+        } else {
+          missingCodePoints.add(codePoint);
+        }
       } else {
         // A zero cover count means we have not yet seen this component.
         if (component.coverCount == 0) {
@@ -208,8 +229,7 @@ class FontFallbackManager {
 
     final selectedFonts = <NotoFont>[];
 
-    while (candidateFonts.isNotEmpty) {
-      final NotoFont selectedFont = _selectFont(candidateFonts);
+    void commitFont(NotoFont selectedFont) {
       selectedFonts.add(selectedFont);
 
       // All the code points in the selected font are now covered. Zero out each
@@ -227,6 +247,24 @@ class FontFallbackManager {
       // The selected font will have a zero cover count, but other fonts may
       // too. Remove these from further consideration.
       candidateFonts.removeWhere((NotoFont font) => font.coverCount == 0);
+    }
+
+    if (hasColorEmoji) {
+      candidateFonts
+          .where((NotoFont font) => font.name.startsWith(_kNotoColorEmojiPrefix))
+          .toList()
+          .forEach(commitFont);
+    }
+
+    if (hasTextEmoji) {
+      candidateFonts
+          .where((NotoFont font) => font.name == _kNotoEmoji)
+          .toList()
+          .forEach(commitFont);
+    }
+
+    while (candidateFonts.isNotEmpty) {
+      commitFont(_selectFont(candidateFonts));
     }
 
     selectedFonts.forEach(_downloadQueue.add);
