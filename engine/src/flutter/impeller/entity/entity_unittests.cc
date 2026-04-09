@@ -35,6 +35,7 @@
 #include "impeller/entity/contents/texture_contents.h"
 #include "impeller/entity/contents/tiled_texture_contents.h"
 #include "impeller/entity/contents/uber_sdf_contents.h"
+#include "impeller/entity/contents/uber_sdf_parameters.h"
 #include "impeller/entity/entity.h"
 #include "impeller/entity/entity_playground.h"
 #include "impeller/entity/geometry/geometry.h"
@@ -42,6 +43,7 @@
 #include "impeller/entity/geometry/round_superellipse_geometry.h"
 #include "impeller/entity/geometry/stroke_path_geometry.h"
 #include "impeller/entity/geometry/superellipse_geometry.h"
+#include "impeller/entity/geometry/uber_sdf_geometry.h"
 #include "impeller/geometry/color.h"
 #include "impeller/geometry/geometry_asserts.h"
 #include "impeller/geometry/point.h"
@@ -1234,9 +1236,9 @@ TEST_P(EntityTest, ContentsGetBoundsForEmptyPathReturnsNullopt) {
 
 TEST(EntityTest, UberSDFContentsCoverage) {
   auto rect = Rect::MakeXYWH(100, 100, 200, 200);
-  FillRectGeometry geometry(rect.Expand(1.0f));
-  auto contents = UberSDFContents::MakeRect(Color::Red(), 0.0f, Join::kMiter,
-                                            false, &geometry);
+  auto params = UberSDFParameters::MakeRect(Color::Red(), rect, std::nullopt);
+  auto geometry = std::make_unique<UberSDFGeometry>(params);
+  auto contents = UberSDFContents::Make(params, std::move(geometry));
 
   Entity entity;
   auto coverage = contents->GetCoverage(entity);
