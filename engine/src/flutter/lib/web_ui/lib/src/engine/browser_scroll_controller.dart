@@ -3,13 +3,8 @@
 // found in the LICENSE file.
 
 import 'dart:js_interop';
-import 'dart:typed_data';
-
-import 'package:ui/ui.dart' as ui;
 
 import 'dom.dart';
-import 'platform_dispatcher.dart';
-import 'services.dart';
 import 'view_embedder/embedding_strategy/embedding_strategy.dart';
 import 'window.dart';
 
@@ -19,16 +14,13 @@ import 'window.dart';
 /// browser. The host element becomes a real scrollable DOM element, and the
 /// browser handles scroll physics, momentum, and scroll chaining natively.
 ///
-/// The framework communicates content extent via a platform channel, and the
-/// engine sends scroll position updates back to the framework via the same
-/// channel.
+/// The framework communicates content extent via the dart:ui API on
+/// [FlutterView], and the engine sends scroll position updates back to the
+/// framework via the [FlutterView.onBrowserScroll] callback.
 class BrowserScrollController {
   BrowserScrollController(this._view);
 
   final EngineFlutterView _view;
-
-  static const String channelName = 'flutter/browser_scroll';
-  static const MethodCodec _codec = JSONMethodCodec();
 
   bool _enabled = false;
   bool get enabled => _enabled;
@@ -74,56 +66,7 @@ class BrowserScrollController {
     _view.embeddingStrategy.updateScrollContentHeight(height);
   }
 
-  /// Handles incoming platform channel messages from the framework.
-  void handleMethodCall(ByteData? data, ui.PlatformMessageResponseCallback? callback) {
-    final MethodCall decoded = _codec.decodeMethodCall(data);
-
-    switch (decoded.method) {
-      case 'enable':
-        enable();
-        _replySuccess(callback);
-
-      case 'disable':
-        disable();
-        _replySuccess(callback);
-
-      case 'updateContentHeight':
-        final args = decoded.arguments as Map<String, Object?>;
-        final height = args['height']! as double;
-        updateContentHeight(height);
-        _replySuccess(callback);
-
-      case 'scrollTo':
-        final args = decoded.arguments as Map<String, Object?>;
-        final offset = args['offset']! as double;
-        _scrollTo(offset);
-        _replySuccess(callback);
-
-      case 'smoothScrollTo':
-        final args = decoded.arguments as Map<String, Object?>;
-        final offset = args['offset']! as double;
-        _smoothScrollTo(offset);
-        _replySuccess(callback);
-
-      case 'scrollBy':
-        final args = decoded.arguments as Map<String, Object?>;
-        final delta = args['delta']! as double;
-        if (!_pvTouchActive) {
-          _scrollBy(delta);
-        }
-        _replySuccess(callback);
-
-      default:
-        callback?.call(
-          _codec.encodeErrorEnvelope(
-            code: 'unknown_method',
-            message: 'Unknown method: ${decoded.method}',
-          ),
-        );
-    }
-  }
-
-  void _scrollTo(double offset) {
+  void scrollTo(double offset) {
     if (_enabled) {
       if (_pvTouchActive) {
         return;
@@ -133,7 +76,7 @@ class BrowserScrollController {
     }
   }
 
-  void _smoothScrollTo(double offset) {
+  void smoothScrollTo(double offset) {
     if (_enabled) {
       if (_pvTouchActive) {
         return;
@@ -142,7 +85,12 @@ class BrowserScrollController {
     }
   }
 
-  void _scrollBy(double delta) {
+  /// Scrolls the root element by [delta] pixels.
+  ///
+  /// Does not check [_pvTouchActive] because the platform-view touch
+  /// chaining handler calls this method during an active touch to forward
+  /// boundary overflow to the outer flutter-view scroll.
+  void scrollBy(double delta) {
     if (_enabled) {
       final DomElement root = _view.dom.rootElement;
       root.scrollTop = root.scrollTop + delta;
@@ -153,13 +101,15 @@ class BrowserScrollController {
   }
 
   /// Scrolls the root element by the given x/y deltas.
-  /// Used by the flutter/scroll channel to route nested scrollable
-  /// overscroll through rootElement instead of window.scrollBy.
+  ///
+  /// Skips the scroll when a platform-view touch gesture is active to
+  /// avoid double-scrolling, since the touch chaining handler already
+  /// calls [scrollBy] directly.
   void scrollByXY(double deltaX, double deltaY) {
     if (!_enabled || _pvTouchActive) {
       return;
     }
-    _scrollBy(deltaY);
+    scrollBy(deltaY);
   }
 
   // ---- Touch start blocker ----
@@ -220,10 +170,7 @@ class BrowserScrollController {
   }
 
   void _sendScrollPositionToFramework(double scrollTop) {
-    final ByteData? message = _codec.encodeMethodCall(
-      MethodCall('onScroll', <String, Object?>{'offset': scrollTop}),
-    );
-    EnginePlatformDispatcher.instance.invokeOnPlatformMessage(channelName, message, (_) {});
+    _view.onBrowserScroll?.call(scrollTop);
   }
 
   // ---- Platform view touch scroll chaining ----
@@ -241,6 +188,13 @@ class BrowserScrollController {
   double? _touchStartY;
   DomElement? _activeScrollable;
   bool _pvTouchActive = false;
+
+  /// Whether a platform-view touch gesture is currently active.
+  ///
+  /// Used by [EngineFlutterView.browserScrollBy] to skip framework-initiated
+  /// scroll-by calls during a touch, since the touch chaining handler already
+  /// forwards boundary overflow via [scrollBy] directly.
+  bool get pvTouchActive => _pvTouchActive;
 
   void _attachPlatformViewTouchChaining() {
     final DomElement pvHost = _view.dom.platformViewsHost;
@@ -300,12 +254,12 @@ class BrowserScrollController {
         final bool atBottom = scrollTop >= maxScroll - 1 && deltaY > 0;
 
         if (atTop || atBottom) {
-          _scrollBy(deltaY);
+          scrollBy(deltaY);
         } else {
           el.scrollTop = scrollTop + deltaY;
         }
       } else {
-        _scrollBy(deltaY);
+        scrollBy(deltaY);
       }
     }
 
@@ -373,7 +327,7 @@ class BrowserScrollController {
     DomElement? scrollable = _findScrollableAncestor(target);
     scrollable ??= _findScrollableDescendant(target);
     if (scrollable == null) {
-      _scrollBy(deltaY);
+      scrollBy(deltaY);
       return;
     }
 
@@ -383,7 +337,7 @@ class BrowserScrollController {
     final bool atBottom = scrollTop >= maxScroll - 1 && deltaY > 0;
 
     if (atTop || atBottom) {
-      _scrollBy(deltaY);
+      scrollBy(deltaY);
     } else {
       scrollable.scrollTop = scrollTop + deltaY;
     }
@@ -424,10 +378,6 @@ class BrowserScrollController {
       current = current.parentElement;
     }
     return null;
-  }
-
-  void _replySuccess(ui.PlatformMessageResponseCallback? callback) {
-    callback?.call(_codec.encodeSuccessEnvelope(true));
   }
 
   void dispose() {

@@ -23,6 +23,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
+import '_browser_scroll_view_io.dart' if (dart.library.js_interop) '_browser_scroll_view_web.dart';
 import 'basic.dart';
 import 'browser_scroll.dart';
 import 'framework.dart';
@@ -616,10 +617,18 @@ class ScrollableState extends State<Scrollable>
 
   // BROWSER-DRIVEN SCROLLING
 
-  // Only one ScrollableState should own the browser-scroll channel at a time.
+  // Only one ScrollableState should own the browser-scroll view API at a time.
   // The first instance to claim it wins; nested scrollables that inherit
   // enableBrowserScrolling from an ancestor ScrollConfiguration are skipped.
   static ScrollableState? _activeBrowserScrollInstance;
+
+  /// The [BrowserScrollViewBinding] used by the active browser-scroll owner.
+  ///
+  /// Exposed so [BrowserScrollable.scrollTo] can reach the view without a
+  /// [BuildContext]. Only non-null while browser scrolling is active.
+  static BrowserScrollViewBinding? browserScrollViewBinding;
+
+  BrowserScrollViewBinding? _viewBinding;
 
   bool _browserScrollEnabled = false;
   bool _browserScrollActive = false;
@@ -632,17 +641,18 @@ class ScrollableState extends State<Scrollable>
     final bool shouldBeActive = _configuration.enableBrowserScrolling;
 
     if (shouldBeActive && !_browserScrollActive) {
-      // Only the first ScrollableState to claim the channel wins. Nested
+      // Only the first ScrollableState to claim the binding wins. Nested
       // scrollables that inherit enableBrowserScrolling from their ancestor
       // ScrollConfiguration are silently skipped.
       if (_activeBrowserScrollInstance != null && _activeBrowserScrollInstance != this) {
         return;
       }
       _activeBrowserScrollInstance = this;
+      browserScrollViewBinding = _viewBinding;
       _browserScrollActive = true;
-      browserScrollChannel.setMethodCallHandler(_handleBrowserScrollMessage);
+      _viewBinding!.onBrowserScroll = _onBrowserScrollCallback;
       _effectiveScrollController.addListener(_onBrowserScrollPositionChanged);
-      if (kIsWeb && !_browserScrollEnabled) {
+      if (!_browserScrollEnabled) {
         _enableBrowserScrolling();
       }
     } else if (!shouldBeActive && _browserScrollActive) {
@@ -655,21 +665,22 @@ class ScrollableState extends State<Scrollable>
       return;
     }
     _effectiveScrollController.removeListener(_onBrowserScrollPositionChanged);
-    browserScrollChannel.setMethodCallHandler(null);
+    _viewBinding?.onBrowserScroll = null;
     if (_browserScrollEnabled) {
       _disableBrowserScrolling();
     }
     _browserScrollActive = false;
     if (_activeBrowserScrollInstance == this) {
       _activeBrowserScrollInstance = null;
+      browserScrollViewBinding = null;
     }
     _maxReachedPixels = 0;
     _reachedBottom = false;
     _lastReportedHeight = 0;
   }
 
-  Future<void> _enableBrowserScrolling() async {
-    await browserScrollChannel.invokeMethod<void>('enable');
+  void _enableBrowserScrolling() {
+    _viewBinding!.enableBrowserScrolling();
     _browserScrollEnabled = true;
 
     SchedulerBinding.instance.addPostFrameCallback((_) {
@@ -677,21 +688,13 @@ class ScrollableState extends State<Scrollable>
     });
   }
 
-  Future<void> _disableBrowserScrolling() async {
+  void _disableBrowserScrolling() {
     _browserScrollEnabled = false;
-    await browserScrollChannel.invokeMethod<void>('disable');
+    _viewBinding!.disableBrowserScrolling();
   }
 
-  Future<dynamic> _handleBrowserScrollMessage(MethodCall call) async {
-    switch (call.method) {
-      case 'onScroll':
-        final args = call.arguments as Map<dynamic, dynamic>;
-        final double offset = (args['offset'] as num).toDouble();
-        _syncScrollFromBrowser(offset);
-      case 'didEnable':
-        _browserScrollEnabled = true;
-        _reportBrowserContentExtent();
-    }
+  void _onBrowserScrollCallback(double offset) {
+    _syncScrollFromBrowser(offset);
   }
 
   void _syncScrollFromBrowser(double scrollTop) {
@@ -725,7 +728,7 @@ class ScrollableState extends State<Scrollable>
     // a feedback loop. Only sync the DOM scrollTop when Flutter is driving
     // the scroll, e.g. programmatic jumpTo or ensureVisible.
     if (!_isBrowserDriving) {
-      browserScrollChannel.invokeMethod<void>('scrollTo', <String, Object?>{'offset': pos.pixels});
+      _viewBinding?.browserScrollTo(pos.pixels);
     }
 
     _reportBrowserContentExtent();
@@ -765,9 +768,7 @@ class ScrollableState extends State<Scrollable>
     }
 
     _lastReportedHeight = totalHeight;
-    browserScrollChannel.invokeMethod<void>('updateContentHeight', <String, Object?>{
-      'height': totalHeight,
-    });
+    _viewBinding?.updateBrowserScrollContentHeight(totalHeight);
   }
 
   // Only call this from places that will definitely trigger a rebuild.
@@ -829,8 +830,11 @@ class ScrollableState extends State<Scrollable>
   @override
   void didChangeDependencies() {
     _mediaQueryGestureSettings = MediaQuery.maybeGestureSettingsOf(context);
-    _devicePixelRatio =
-        MediaQuery.maybeDevicePixelRatioOf(context) ?? View.of(context).devicePixelRatio;
+    final FlutterView flutterView = View.of(context);
+    if (_viewBinding?.view != flutterView) {
+      _viewBinding = BrowserScrollViewBinding(flutterView);
+    }
+    _devicePixelRatio = MediaQuery.maybeDevicePixelRatioOf(context) ?? flutterView.devicePixelRatio;
     _updatePosition();
     _setupBrowserScroll();
     super.didChangeDependencies();

@@ -78,9 +78,9 @@ class ScrollBehavior {
   /// Whether the outermost scrollable should delegate scrolling to the
   /// browser's native scroll engine.
   ///
-  /// When true, [ScrollableState] sets up the `flutter/browser_scroll`
-  /// platform channel to sync positions with the browser and automatically
-  /// applies [BrowserScrollPhysics]. The browser handles scroll physics,
+  /// When true, [ScrollableState] sets up browser scrolling via the dart:ui
+  /// API to sync positions with the browser and automatically applies
+  /// [BrowserScrollPhysics]. The browser handles scroll physics,
   /// draws the native scrollbar, and chains overflow to parent pages. Flutter
   /// still lays out and paints content, but the browser owns the scroll
   /// position.

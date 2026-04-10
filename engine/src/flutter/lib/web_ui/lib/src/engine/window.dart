@@ -169,6 +169,42 @@ class EngineFlutterView implements ui.FlutterView {
 
   late final BrowserScrollController browserScrollController = BrowserScrollController(this);
 
+  // Browser-driven scrolling API (dart:ui surface)
+
+  @override
+  void enableBrowserScrolling() => browserScrollController.enable();
+
+  @override
+  void disableBrowserScrolling() => browserScrollController.disable();
+
+  @override
+  void browserScrollTo(double offset) => browserScrollController.scrollTo(offset);
+
+  @override
+  void browserSmoothScrollTo(double offset) => browserScrollController.smoothScrollTo(offset);
+
+  @override
+  void browserScrollBy(double delta) {
+    if (browserScrollController.pvTouchActive) {
+      return;
+    }
+    browserScrollController.scrollBy(delta);
+  }
+
+  @override
+  void updateBrowserScrollContentHeight(double height) =>
+      browserScrollController.updateContentHeight(height);
+
+  ui.BrowserScrollCallback? _onBrowserScroll;
+
+  @override
+  ui.BrowserScrollCallback? get onBrowserScroll => _onBrowserScroll;
+
+  @override
+  set onBrowserScroll(ui.BrowserScrollCallback? callback) {
+    _onBrowserScroll = callback;
+  }
+
   @override
   ui.Size get physicalSize {
     return _physicalSize ??= _computePhysicalSize();

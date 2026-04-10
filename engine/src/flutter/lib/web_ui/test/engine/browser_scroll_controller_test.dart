@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'dart:typed_data';
-
 import 'package:test/bootstrap/browser.dart';
 import 'package:test/test.dart';
 import 'package:ui/src/engine.dart';
@@ -42,78 +40,6 @@ void testMain() {
     test('disable when already disabled is a no-op', () {
       controller.disable();
       expect(controller.enabled, isFalse);
-    });
-  });
-
-  group('handleMethodCall', () {
-    ByteData encode(String method, [Map<String, Object?>? args]) {
-      const codec = JSONMethodCodec();
-      return codec.encodeMethodCall(MethodCall(method, args))!;
-    }
-
-    test('enable method call replies with success', () {
-      var replied = false;
-      controller.handleMethodCall(encode('enable'), (ByteData? response) {
-        replied = true;
-      });
-      expect(replied, isTrue);
-    });
-
-    test('disable method call replies with success', () {
-      var replied = false;
-      controller.handleMethodCall(encode('disable'), (ByteData? response) {
-        replied = true;
-      });
-      expect(replied, isTrue);
-    });
-
-    test('updateContentHeight replies with success', () {
-      var replied = false;
-      controller.handleMethodCall(
-        encode('updateContentHeight', <String, Object?>{'height': 3000.0}),
-        (ByteData? response) {
-          replied = true;
-        },
-      );
-      expect(replied, isTrue);
-    });
-
-    test('scrollTo replies with success', () {
-      var replied = false;
-      controller.handleMethodCall(encode('scrollTo', <String, Object?>{'offset': 100.0}), (
-        ByteData? response,
-      ) {
-        replied = true;
-      });
-      expect(replied, isTrue);
-    });
-
-    test('scrollBy replies with success', () {
-      var replied = false;
-      controller.handleMethodCall(encode('scrollBy', <String, Object?>{'delta': 50.0}), (
-        ByteData? response,
-      ) {
-        replied = true;
-      });
-      expect(replied, isTrue);
-    });
-
-    test('smoothScrollTo replies with success', () {
-      var replied = false;
-      controller.handleMethodCall(encode('smoothScrollTo', <String, Object?>{'offset': 200.0}), (
-        ByteData? response,
-      ) {
-        replied = true;
-      });
-      expect(replied, isTrue);
-    });
-
-    test('unknown method replies with error', () {
-      ByteData? errorResponse;
-      controller.handleMethodCall(encode('nonExistentMethod'), (ByteData? response) {
-        errorResponse = response;
-      });
-      expect(errorResponse, isNotNull);
     });
   });
 
@@ -274,12 +200,6 @@ void testMain() {
       controller.dispose();
       controller.dispose();
       expect(controller.enabled, isFalse);
-    });
-  });
-
-  group('channel name', () {
-    test('has correct value', () {
-      expect(BrowserScrollController.channelName, 'flutter/browser_scroll');
     });
   });
 }

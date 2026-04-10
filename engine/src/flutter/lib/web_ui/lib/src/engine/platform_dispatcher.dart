@@ -566,12 +566,6 @@ class EnginePlatformDispatcher extends ui.PlatformDispatcher {
         domWindow.dispatchEvent(createDomEvent('Event', 'flutter-first-frame'));
         return;
 
-      case 'flutter/browser_scroll':
-        if (implicitView != null) {
-          implicitView!.browserScrollController.handleMethodCall(data, callback);
-        }
-        return;
-
       case 'flutter/textinput':
         textEditing.channel.handleTextInput(data, callback);
         return;
