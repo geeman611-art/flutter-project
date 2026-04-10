@@ -391,7 +391,7 @@ void main() {
       controller.dispose();
     });
 
-    testWidgets('jumpTo sends browserScrollTo to engine', (tester) async {
+    testWidgets('jumpTo delegates to browser and does not move pixels directly', (tester) async {
       await tester.pumpWidget(_buildTestApp(controller));
       await tester.pump();
 
@@ -400,23 +400,36 @@ void main() {
       controller.jumpTo(500);
       await tester.pump();
 
-      expect(controller.position.pixels, closeTo(500.0, 1.0));
+      // pixels stays at 0 until the browser fires onBrowserScroll back
+      expect(controller.position.pixels, closeTo(0.0, 1.0));
 
       final List<Map<String, Object?>> scrollToCalls = _callsOf('browserScrollTo');
       expect(scrollToCalls, isNotEmpty);
       expect(scrollToCalls.last['args']! as double, closeTo(500.0, 1.0));
+
+      // simulate the browser responding, which syncs pixels
+      _simulateOnScroll(500);
+      await tester.pump();
+      expect(controller.position.pixels, closeTo(500.0, 1.0));
     });
 
-    testWidgets('animateTo does not move pixels with enableBrowserScrolling', (tester) async {
+    testWidgets('animateTo delegates to browser smooth scroll', (tester) async {
       await tester.pumpWidget(_buildTestApp(controller));
       await tester.pump();
+
+      _clearCalls();
 
       controller.animateTo(400, duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
       await tester.pump(const Duration(milliseconds: 150));
 
+      // pixels stays at 0 until the browser fires onBrowserScroll back
       expect(controller.position.pixels, closeTo(0.0, 1.0));
+
+      final List<Map<String, Object?>> smoothCalls = _callsOf('browserSmoothScrollTo');
+      expect(smoothCalls, isNotEmpty);
+      expect(smoothCalls.last['args']! as double, closeTo(400.0, 1.0));
     });
 
     testWidgets('ensureVisible triggers scroll', (tester) async {
@@ -491,7 +504,9 @@ void main() {
         await tester.pump();
       }
 
-      expect(controller.position.pixels, greaterThan(0));
+      // Focus traversal delegates programmatic scroll to the browser via jumpTo.
+      // pixels stays at 0 until onBrowserScroll fires; the browser call is the
+      // observable effect.
       expect(
         _callsOf('browserScrollTo'),
         isNotEmpty,
@@ -544,10 +559,15 @@ void main() {
       outerController.jumpTo(200);
       await tester.pump();
 
-      expect(outerController.position.pixels, closeTo(200.0, 1.0));
+      // jumpTo on the outermost scrollable delegates to the browser and does
+      // not move pixels directly; pixels updates when onBrowserScroll fires.
       final List<Map<String, Object?>> scrollToCalls = _callsOf('browserScrollTo');
       expect(scrollToCalls, isNotEmpty);
       expect(scrollToCalls.last['args']! as double, closeTo(200.0, 1.0));
+
+      _simulateOnScroll(200);
+      await tester.pump();
+      expect(outerController.position.pixels, closeTo(200.0, 1.0));
     });
 
     testWidgets('inner scrollable at boundary forwards delta to engine via browserScrollBy', (

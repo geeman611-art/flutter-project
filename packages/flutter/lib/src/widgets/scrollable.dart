@@ -25,7 +25,6 @@ import 'package:flutter/services.dart';
 
 import '_browser_scroll_view_io.dart' if (dart.library.js_interop) '_browser_scroll_view_web.dart';
 import 'basic.dart';
-import 'browser_scroll.dart';
 import 'framework.dart';
 import 'gesture_detector.dart';
 import 'media_query.dart';
@@ -624,8 +623,9 @@ class ScrollableState extends State<Scrollable>
 
   /// The [BrowserScrollViewBinding] used by the active browser-scroll owner.
   ///
-  /// Exposed so [BrowserScrollable.scrollTo] can reach the view without a
-  /// [BuildContext]. Only non-null while browser scrolling is active.
+  /// Used by [ScrollPositionWithSingleContext] to delegate [animateTo] and
+  /// [jumpTo] to the browser when [BrowserScrollPhysics] is active. Only
+  /// non-null while browser scrolling is active.
   static BrowserScrollViewBinding? browserScrollViewBinding;
 
   BrowserScrollViewBinding? _viewBinding;

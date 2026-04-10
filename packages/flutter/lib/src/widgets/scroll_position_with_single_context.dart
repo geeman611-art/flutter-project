@@ -195,6 +195,16 @@ class ScrollPositionWithSingleContext extends ScrollPosition implements ScrollAc
 
   @override
   Future<void> animateTo(double to, {required Duration duration, required Curve curve}) {
+    // When browser scrolling is active on the outermost scrollable, pixels
+    // never moves through normal Dart physics (BrowserScrollPhysics returns
+    // the entire delta as overscroll). Delegate to the browser's smooth scroll
+    // so the developer's controller.animateTo() call works transparently.
+    final BrowserScrollViewBinding? binding = ScrollableState.browserScrollViewBinding;
+    if (binding != null && physics is BrowserScrollPhysics) {
+      binding.browserSmoothScrollTo(to);
+      return Future<void>.value();
+    }
+
     if (nearEqual(to, pixels, physics.toleranceFor(this).distance)) {
       // Skip the animation, go straight to the position as we are already close.
       jumpTo(to);
@@ -215,6 +225,14 @@ class ScrollPositionWithSingleContext extends ScrollPosition implements ScrollAc
 
   @override
   void jumpTo(double value) {
+    // When browser scrolling is active on the outermost scrollable, delegate
+    // to the browser's instant scroll so controller.jumpTo() works transparently.
+    final BrowserScrollViewBinding? binding = ScrollableState.browserScrollViewBinding;
+    if (binding != null && physics is BrowserScrollPhysics) {
+      binding.browserScrollTo(value);
+      return;
+    }
+
     goIdle();
     if (pixels != value) {
       final double oldPixels = pixels;

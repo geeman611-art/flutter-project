@@ -85,13 +85,13 @@ class ScrollBehavior {
   /// still lays out and paints content, but the browser owns the scroll
   /// position.
   ///
-  /// The platform channel is only activated on web. On other platforms the
-  /// channel calls are no-ops, but [BrowserScrollPhysics] is still applied
-  /// to the physics chain so that the behavior can be tested without running
-  /// in a browser.
+  /// The dart:ui browser scroll API is only functional on web. On other
+  /// platforms the binding calls are no-ops, but [BrowserScrollPhysics] is
+  /// still applied to the physics chain so that the behavior can be tested
+  /// without running in a browser.
   ///
   /// If multiple nested [Scrollable]s inherit this flag, only the outermost
-  /// one claims the browser-scroll channel. Inner scrollables use their
+  /// one claims the browser-scroll binding. Inner scrollables use their
   /// normal physics.
   ///
   /// Defaults to false.
