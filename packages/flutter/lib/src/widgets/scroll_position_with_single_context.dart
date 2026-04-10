@@ -11,23 +11,19 @@ library;
 
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 
+import '_browser_scroll_view_io.dart' if (dart.library.js_interop) '_browser_scroll_view_web.dart';
 import 'basic.dart';
+import 'framework.dart';
 import 'scroll_activity.dart';
 import 'scroll_context.dart';
 import 'scroll_notification.dart';
 import 'scroll_physics.dart';
 import 'scroll_position.dart';
-
-const BasicMessageChannel<Object?> _scrollChannel = BasicMessageChannel<Object?>(
-  'flutter/scroll',
-  StandardMessageCodec(),
-);
+import 'scrollable.dart';
 
 /// A scroll position that manages scroll activities for a single
 /// [ScrollContext].
@@ -140,30 +136,19 @@ class ScrollPositionWithSingleContext extends ScrollPosition implements ScrollAc
 
     setPixels(pixels - physics.applyPhysicsToUserOffset(this, delta));
 
-    if (kIsWeb) {
-      final bool shouldPropagateDown = delta < 0 && (wasAtMax || pixels >= maxScrollExtent);
-      final bool shouldPropagateUp = delta > 0 && (wasAtMin || pixels <= minScrollExtent);
-
-      if (shouldPropagateDown || shouldPropagateUp) {
-        _propagateScrollToParent(delta);
+    // When a nested scrollable hits its boundary during a touch drag,
+    // forward the leftover delta to the browser via the dart:ui binding
+    // so the outer page scrolls. This only fires when browser scrolling
+    // is active. Desktop wheel events are handled separately by the
+    // engine's pointer_binding wheel interceptor.
+    final BrowserScrollViewBinding? binding = ScrollableState.browserScrollViewBinding;
+    if (binding != null) {
+      final bool atBoundaryDown = delta < 0 && (wasAtMax || pixels >= maxScrollExtent);
+      final bool atBoundaryUp = delta > 0 && (wasAtMin || pixels <= minScrollExtent);
+      if (atBoundaryDown || atBoundaryUp) {
+        binding.browserScrollBy(-delta);
       }
     }
-  }
-
-  void _propagateScrollToParent(double overscroll) {
-    var deltaX = 0.0;
-    var deltaY = 0.0;
-    switch (axisDirection) {
-      case AxisDirection.up:
-        deltaY = overscroll;
-      case AxisDirection.down:
-        deltaY = -overscroll;
-      case AxisDirection.left:
-        deltaX = overscroll;
-      case AxisDirection.right:
-        deltaX = -overscroll;
-    }
-    _scrollChannel.send(<String, dynamic>{'deltaX': deltaX, 'deltaY': deltaY});
   }
 
   @override

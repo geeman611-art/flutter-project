@@ -100,18 +100,6 @@ class BrowserScrollController {
     }
   }
 
-  /// Scrolls the root element by the given x/y deltas.
-  ///
-  /// Skips the scroll when a platform-view touch gesture is active to
-  /// avoid double-scrolling, since the touch chaining handler already
-  /// calls [scrollBy] directly.
-  void scrollByXY(double deltaX, double deltaY) {
-    if (!_enabled || _pvTouchActive) {
-      return;
-    }
-    scrollBy(deltaY);
-  }
-
   // ---- Touch start blocker ----
   //
   // Prevents the browser from initiating native touch scrolling on

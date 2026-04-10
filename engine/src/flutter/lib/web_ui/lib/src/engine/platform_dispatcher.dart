@@ -644,27 +644,6 @@ class EnginePlatformDispatcher extends ui.PlatformDispatcher {
         // further effect after this point.
         _defaultRouteName = '/';
         return;
-
-      case 'flutter/scroll':
-        const codec = StandardMessageCodec();
-        final dynamic decoded = codec.decodeMessage(data);
-        if (decoded is Map) {
-          final double deltaX = (decoded['deltaX'] as num?)?.toDouble() ?? 0.0;
-          final double deltaY = (decoded['deltaY'] as num?)?.toDouble() ?? 0.0;
-          // When BrowserScrollController is active, route scroll deltas
-          // through it so they adjust rootElement.scrollTop instead of
-          // window.scrollBy which has no effect in full-page mode.
-          final EngineFlutterWindow? view = implicitView;
-          if (view != null && view.browserScrollController.enabled) {
-            view.browserScrollController.scrollByXY(deltaX, deltaY);
-          } else {
-            scrollParentWindow(deltaX, deltaY);
-          }
-          replyToPlatformMessage(callback, codec.encodeMessage(true));
-        } else {
-          replyToPlatformMessage(callback, codec.encodeMessage(false));
-        }
-        return;
     }
 
     if (pluginMessageCallHandler != null) {

@@ -550,6 +550,59 @@ void main() {
       expect(scrollToCalls.last['args']! as double, closeTo(200.0, 1.0));
     });
 
+    testWidgets('inner scrollable at boundary forwards delta to engine via browserScrollBy', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: MediaQuery(
+            data: const MediaQueryData(),
+            child: BrowserScrollable(
+              child: ListView(
+                controller: outerController,
+                children: [
+                  const SizedBox(height: 100),
+                  SizedBox(
+                    height: 300,
+                    child: ListView.builder(
+                      itemCount: 50,
+                      itemBuilder: (context, index) =>
+                          SizedBox(height: 40, child: Text('Inner $index')),
+                    ),
+                  ),
+                  const SizedBox(height: 1000),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final Finder innerListFinder = find.byType(Scrollable).at(1);
+      final ScrollableState innerScrollable = tester.state(innerListFinder);
+      final ScrollPosition innerPos = innerScrollable.position;
+
+      // Scroll the inner list to its bottom boundary.
+      innerPos.jumpTo(innerPos.maxScrollExtent);
+      await tester.pump();
+
+      _clearCalls();
+
+      // Drag the inner list past its bottom boundary.
+      // applyUserOffset detects wasAtMax and calls browserScrollBy.
+      await tester.drag(find.byType(Scrollable).at(1), const Offset(0, -60));
+      await tester.pump();
+
+      final List<Map<String, Object?>> scrollByCalls = _callsOf('browserScrollBy');
+      expect(
+        scrollByCalls,
+        isNotEmpty,
+        reason: 'Inner scrollable at bottom boundary should forward delta to engine',
+      );
+    });
+
     testWidgets('inner scrollable scrolls independently without BrowserScrollPhysics', (
       tester,
     ) async {

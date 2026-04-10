@@ -43,12 +43,6 @@ void testMain() {
     });
   });
 
-  group('scrollByXY', () {
-    test('does nothing when disabled', () {
-      controller.scrollByXY(0, 100);
-    });
-  });
-
   group('findPlatformViewAtPoint', () {
     test('returns null when no platform views exist', () {
       final DomElement? result = controller.findPlatformViewAtPoint(100, 100);
