@@ -8,7 +8,9 @@
 #include <ctime>
 #include <future>
 #include <memory>
+#include <mutex>
 #include <thread>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -233,6 +235,31 @@ class MockPlatformView : public PlatformView {
               GetPlatformMessageHandler,
               (),
               (const, override));
+};
+
+class SurfaceTrackingPlatformView : public PlatformView {
+ public:
+  using HasRenderingSurfaceCallback = std::function<bool(int64_t view_id)>;
+
+  SurfaceTrackingPlatformView(
+      PlatformView::Delegate& delegate,
+      const TaskRunners& task_runners,
+      HasRenderingSurfaceCallback has_rendering_surface_callback)
+      : PlatformView(delegate, task_runners),
+        has_rendering_surface_callback_(
+            std::move(has_rendering_surface_callback)) {}
+
+  bool HasRenderingSurface(int64_t view_id) override {
+    return has_rendering_surface_callback_(view_id);
+  }
+
+ private:
+  const HasRenderingSurfaceCallback has_rendering_surface_callback_;
+};
+
+struct RenderingSurfaceState {
+  std::mutex mutex;
+  std::unordered_set<int64_t> active_view_ids;
 };
 
 class TestPlatformView : public PlatformView {
@@ -5108,6 +5135,107 @@ TEST_F(ShellTest, ShoulDiscardLayerTreeIfFrameIsSizedIncorrectly) {
                                                 /*frame_size=*/DlISize(100, 0));
   ASSERT_TRUE(ShellTest::ShouldDiscardLayerTree(shell.get(), kImplicitViewId,
                                                 *min_height));
+  DestroyShell(std::move(shell), task_runners);
+}
+
+TEST_F(ShellTest, ShouldDiscardLayerTreeWhenRenderingSurfaceIsMissing) {
+  Settings settings = CreateSettingsForFixture();
+  auto task_runner = CreateNewThread();
+  TaskRunners task_runners("test", task_runner, task_runner, task_runner,
+                           task_runner);
+
+  auto rendering_surface_state = std::make_shared<RenderingSurfaceState>();
+  rendering_surface_state->active_view_ids.insert(kImplicitViewId);
+  Shell::CreateCallback<PlatformView> platform_view_create_callback =
+      [rendering_surface_state](Shell& shell) {
+        return std::make_unique<SurfaceTrackingPlatformView>(
+            shell, shell.GetTaskRunners(),
+            [rendering_surface_state](int64_t view_id) {
+              std::scoped_lock lock(rendering_surface_state->mutex);
+              return rendering_surface_state->active_view_ids.count(view_id) >
+                     0;
+            });
+      };
+  std::unique_ptr<Shell> shell = CreateShell({
+      .settings = settings,
+      .task_runners = task_runners,
+      .platform_view_create_callback = platform_view_create_callback,
+  });
+
+  PostSync(shell->GetTaskRunners().GetPlatformTaskRunner(), [&shell]() {
+    shell->GetPlatformView()->SetViewportMetrics(
+        kImplicitViewId, ViewportMetrics{1.0, 100, 100, 22, 0});
+  });
+
+  auto layer_tree =
+      std::make_unique<LayerTree>(/*root_layer=*/nullptr,
+                                  /*frame_size=*/DlISize(100, 100));
+  ASSERT_FALSE(ShellTest::ShouldDiscardLayerTree(shell.get(), kImplicitViewId,
+                                                 *layer_tree));
+
+  {
+    std::scoped_lock lock(rendering_surface_state->mutex);
+    rendering_surface_state->active_view_ids.erase(kImplicitViewId);
+  }
+
+  ASSERT_TRUE(ShellTest::ShouldDiscardLayerTree(shell.get(), kImplicitViewId,
+                                                *layer_tree));
+  DestroyShell(std::move(shell), task_runners);
+}
+
+TEST_F(ShellTest, ShouldDiscardLayerTreeAfterViewIsRemoved) {
+  Settings settings = CreateSettingsForFixture();
+  auto task_runner = CreateNewThread();
+  TaskRunners task_runners("test", task_runner, task_runner, task_runner,
+                           task_runner);
+
+  constexpr int64_t kSecondaryViewId = kImplicitViewId + 1;
+  auto rendering_surface_state = std::make_shared<RenderingSurfaceState>();
+  rendering_surface_state->active_view_ids.insert(kImplicitViewId);
+  rendering_surface_state->active_view_ids.insert(kSecondaryViewId);
+  Shell::CreateCallback<PlatformView> platform_view_create_callback =
+      [rendering_surface_state](Shell& shell) {
+        return std::make_unique<SurfaceTrackingPlatformView>(
+            shell, shell.GetTaskRunners(),
+            [rendering_surface_state](int64_t view_id) {
+              std::scoped_lock lock(rendering_surface_state->mutex);
+              return rendering_surface_state->active_view_ids.count(view_id) >
+                     0;
+            });
+      };
+  std::unique_ptr<Shell> shell = CreateShell({
+      .settings = settings,
+      .task_runners = task_runners,
+      .platform_view_create_callback = platform_view_create_callback,
+  });
+
+  PostSync(shell->GetTaskRunners().GetPlatformTaskRunner(), [&shell] {
+    shell->GetPlatformView()->SetViewportMetrics(
+        kSecondaryViewId, ViewportMetrics{1.0, 100, 100, 22, 0});
+  });
+
+  auto layer_tree =
+      std::make_unique<LayerTree>(/*root_layer=*/nullptr,
+                                  /*frame_size=*/DlISize(100, 100));
+  ASSERT_FALSE(ShellTest::ShouldDiscardLayerTree(shell.get(), kSecondaryViewId,
+                                                 *layer_tree));
+
+  fml::AutoResetWaitableEvent remove_latch;
+  PostSync(shell->GetTaskRunners().GetPlatformTaskRunner(), [&shell,
+                                                             &remove_latch] {
+    shell->GetPlatformView()->RemoveView(kSecondaryViewId, [&](bool removed) {
+      EXPECT_FALSE(removed);
+      remove_latch.Signal();
+    });
+  });
+  remove_latch.Wait();
+  {
+    std::scoped_lock lock(rendering_surface_state->mutex);
+    rendering_surface_state->active_view_ids.erase(kSecondaryViewId);
+  }
+
+  ASSERT_TRUE(ShellTest::ShouldDiscardLayerTree(shell.get(), kSecondaryViewId,
+                                                *layer_tree));
   DestroyShell(std::move(shell), task_runners);
 }
 
