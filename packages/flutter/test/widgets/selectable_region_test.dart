@@ -6688,7 +6688,48 @@ void main() {
     expect(paragraph.selections, isNotEmpty);
     expect(paragraph.selections.first, const TextSelection(baseOffset: 0, extentOffset: 12));
   });
+
+  testWidgets(
+    'MultiSelectableSelectionContainerDelegate._compareScreenOrder does not crash with unlaid-out selectables',
+    (WidgetTester tester) async {
+      // Regression test for https://github.com/flutter/flutter/issues/151536
+      //
+      // When _RenderTheater skips laying out an obscured OverlayEntry, selectables
+      // in that entry remain registered with their SelectionContainerDelegate but
+      // their RenderBoxes have no size. _flushAdditions then calls _compareScreenOrder
+      // which accesses paintBounds/getTransformTo and throws StateError in release
+      // mode / AssertionError in debug. This test drives
+      // MultiSelectableSelectionContainerDelegate._compareScreenOrder via multiple
+      // sibling Text widgets under a single SelectionArea.
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Navigator(
+            pages: <Page<void>>[
+              MaterialPage<void>(
+                child: SelectionArea(
+                  child: Column(
+                    children: <Widget>[
+                      Text('Bottom page text A'),
+                      Text('Bottom page text B'),
+                      Text('Bottom page text C'),
+                    ],
+                  ),
+                ),
+              ),
+              MaterialPage<void>(child: Scaffold(body: Text('Top page'))),
+            ],
+            onDidRemovePage: _noopRemovePage,
+          ),
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Top page'), findsOneWidget);
+    },
+  );
 }
+
+void _noopRemovePage(Page<Object?> page) {}
 
 class ColumnSelectionContainerDelegate extends StaticSelectionContainerDelegate {
   /// Copies the selected contents of all [Selectable]s, separating their
