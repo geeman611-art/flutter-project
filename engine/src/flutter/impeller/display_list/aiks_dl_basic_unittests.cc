@@ -2312,12 +2312,14 @@ TEST_P(AiksTest, NoDimplesInRRectPath) {
   Scalar width = 200.f;
   Scalar height = 60.f;
   Scalar corner = 1.f;
+  bool stroked = true;
   auto callback = [&]() -> sk_sp<DisplayList> {
     if (AiksTest::ImGuiBegin("Controls", nullptr,
                              ImGuiWindowFlags_AlwaysAutoResize)) {
       ImGui::SliderFloat("width", &width, 0, 200);
       ImGui::SliderFloat("height", &height, 0, 200);
       ImGui::SliderFloat("corner", &corner, 0, 1);
+      ImGui::Checkbox("stroked", &stroked);
       ImGui::End();
     }
 
@@ -2337,8 +2339,12 @@ TEST_P(AiksTest, NoDimplesInRRectPath) {
                                               DlTileMode::kClamp);
     paint.setColorSource(gradient);
     paint.setColor(DlColor::kWhite());
-    paint.setDrawStyle(DlDrawStyle::kStroke);
-    paint.setStrokeWidth(20);
+    if (stroked) {
+      paint.setDrawStyle(DlDrawStyle::kStroke);
+      paint.setStrokeWidth(20);
+    } else {
+      paint.setDrawStyle(DlDrawStyle::kFill);
+    }
 
     builder.Save();
     builder.Translate(100, 100);

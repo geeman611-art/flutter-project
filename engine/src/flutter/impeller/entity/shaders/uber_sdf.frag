@@ -70,28 +70,34 @@ float filledSDF(vec2 p) {
 
 float strokedSDF(vec2 p) {
   float half_stroke = max(frag_info.stroke_width, 0.0) * 0.5;
+  float outer;
+  float inner;
 
   if (frag_info.type < 0.5) {  // Circle
-    float outer = distanceFromCircle(p, frag_info.size.x + half_stroke);
-    float inner = distanceFromCircle(p, frag_info.size.x - half_stroke);
-    return max(outer, -inner);
+    outer = distanceFromCircle(p, frag_info.size.x + half_stroke);
+    inner = distanceFromCircle(p, frag_info.size.x - half_stroke);
   } else if (frag_info.type < 1.5) {  // Rect
-    float outer;
-    float inner;
+
     if (frag_info.stroke_join < 0.5) {  // Miter
+      // Rectangle expanded by half_stroke
       outer = distanceFromRect(p, frag_info.size + half_stroke);
     } else if (frag_info.stroke_join < 1.5) {  // Bevel
+      // Rectangle expanded by half_stroke, with half_stroke chamfer
       outer =
           distanceFromChamferRect(p, frag_info.size + half_stroke, half_stroke);
     } else {  // Round
+      // Rectangle sdf expanded by half_stroke, to give a half_stroke radius
+      // https://www.shadertoy.com/view/NfXSDr
       outer = distanceFromRect(p, frag_info.size) - half_stroke;
     }
     inner = distanceFromRect(p, frag_info.size - half_stroke);
-    return max(outer, -inner);
   } else {  // Rounded Rect
     float d = distanceFromRoundedRect(p, frag_info.size, frag_info.radii);
-    return abs(d) - half_stroke;
+    outer = d - half_stroke;
+    inner = d + half_stroke;
   }
+
+  return max(outer, -inner);
 }
 
 void main() {
