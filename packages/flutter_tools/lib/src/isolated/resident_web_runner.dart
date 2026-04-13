@@ -55,6 +55,7 @@ class DwdsWebRunnerFactory extends WebRunnerFactory {
     required bool stayResident,
     required FlutterProject flutterProject,
     required DebuggingOptions debuggingOptions,
+    bool enableHotReload = true,
     UrlTunneller? urlTunneller,
     required Logger logger,
     required Terminal terminal,
@@ -71,6 +72,7 @@ class DwdsWebRunnerFactory extends WebRunnerFactory {
       target: target,
       flutterProject: flutterProject,
       debuggingOptions: debuggingOptions,
+      enableHotReload: enableHotReload,
       stayResident: stayResident,
       urlTunneller: urlTunneller,
       machine: machine,
@@ -102,6 +104,7 @@ class ResidentWebRunner extends ResidentRunner {
     super.projectRootPath,
     required this.flutterProject,
     required super.debuggingOptions,
+    this.enableHotReload = true,
     required FileSystem fileSystem,
     required Logger logger,
     required Terminal terminal,
@@ -137,6 +140,7 @@ class ResidentWebRunner extends ResidentRunner {
   final Analytics _analytics;
   final UrlTunneller? _urlTunneller;
   final Map<String, String> _webDefines;
+  final bool enableHotReload;
 
   @override
   Logger get logger => _logger;
@@ -174,6 +178,7 @@ class ResidentWebRunner extends ResidentRunner {
 
   @override
   bool get reloadIsRestart =>
+      !enableHotReload ||
       debuggingOptions.webUseWasm ||
       // Web behavior when not using the DDC library bundle format is to restart
       // when a reload is issued. We can't use `canHotReload` to signal this
@@ -436,7 +441,8 @@ class ResidentWebRunner extends ResidentRunner {
   }) async {
     final DateTime start = _systemClock.now();
     final Status status;
-    if (debuggingOptions.buildInfo.ddcModuleFormat != DdcModuleFormat.ddc ||
+    if (!enableHotReload ||
+        debuggingOptions.buildInfo.ddcModuleFormat != DdcModuleFormat.ddc ||
         !debuggingOptions.buildInfo.canaryFeatures) {
       // Triggering hot reload performed hot restart for the old module formats
       // historically. Keep that behavior and only perform hot reload when the

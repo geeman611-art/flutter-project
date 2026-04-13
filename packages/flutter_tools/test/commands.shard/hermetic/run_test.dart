@@ -1818,11 +1818,16 @@ server:
     late BufferLogger logger;
     late TestDeviceManager testDeviceManager;
     late FileSystem fileSystem;
+    late FakeWebRunnerFactory fakeWebRunnerFactory;
 
     setUp(() {
       logger = BufferLogger.test();
+      fakeWebRunnerFactory = FakeWebRunnerFactory();
 
-      final fakeDevice = FakeDevice();
+      final fakeDevice = FakeDevice(
+        platformType: PlatformType.web,
+        targetPlatform: TargetPlatform.web_javascript,
+      );
       testDeviceManager = TestDeviceManager(logger: logger)..devices = <Device>[fakeDevice];
       testDeviceManager.specifiedDeviceId = fakeDevice.id;
 
@@ -1902,6 +1907,26 @@ server:
         ProcessManager: () => FakeProcessManager.any(),
         Logger: () => logger,
         DeviceManager: () => testDeviceManager,
+      },
+      initializeFlutterRoot: false,
+    );
+
+    testUsingContext(
+      '--no-hot disables web hot reload in the web runner',
+      () async {
+        final CommandRunner<void> runner = createTestCommandRunner(RunCommand());
+
+        await runner.run(<String>['run', '--no-pub', '--no-hot']);
+
+        expect(fakeWebRunnerFactory.lastEnableHotReload, isFalse);
+      },
+      overrides: <Type, Generator>{
+        FileSystem: () => fileSystem,
+        ProcessManager: () => FakeProcessManager.any(),
+        Logger: () => logger,
+        DeviceManager: () => testDeviceManager,
+        FeatureFlags: () => FakeFeatureFlags(),
+        WebRunnerFactory: () => fakeWebRunnerFactory,
       },
       initializeFlutterRoot: false,
     );
@@ -2239,6 +2264,7 @@ class FakeFeatureFlags extends Fake implements FeatureFlags {
 /// A Fake WebRunnerFactory that CAPTURES the debugging options passed to it.
 class FakeWebRunnerFactory extends Fake implements WebRunnerFactory {
   DebuggingOptions? lastOptions;
+  bool? lastEnableHotReload;
   Map<String, String>? lastWebDefines;
 
   @override
@@ -2247,6 +2273,7 @@ class FakeWebRunnerFactory extends Fake implements WebRunnerFactory {
     String? target,
     required bool stayResident,
     required DebuggingOptions debuggingOptions,
+    bool enableHotReload = true,
     required analytics.Analytics analytics,
     required FileSystem fileSystem,
     required FlutterProject flutterProject,
@@ -2260,6 +2287,7 @@ class FakeWebRunnerFactory extends Fake implements WebRunnerFactory {
     Map<String, String> webDefines = const <String, String>{},
   }) {
     lastOptions = debuggingOptions;
+    lastEnableHotReload = enableHotReload;
     lastWebDefines = webDefines;
     return FakeResidentRunner();
   }
