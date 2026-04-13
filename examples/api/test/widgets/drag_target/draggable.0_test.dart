@@ -122,7 +122,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       Directionality(
-        textDirection: TextDirection.ltr,
+        textDirection: .ltr,
         child: Center(
           child: Overlay(
             initialEntries: <OverlayEntry>[
@@ -145,7 +145,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       Directionality(
-        textDirection: TextDirection.ltr,
+        textDirection: .ltr,
         child: Center(
           child: SizedBox.shrink(
             child: Overlay(
@@ -161,5 +161,21 @@ void main() {
       ),
     );
     expect(tester.getSize(find.byType(Draggable<bool>)), Size.zero);
+  });
+
+  testWidgets('DragTarget does not crash at zero area', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: .ltr,
+        child: Center(
+          child: SizedBox.shrink(
+            child: DragTarget<bool>(builder: (_, _, _) => Text('X')),
+          ),
+        ),
+      ),
+    );
+    expect(tester.getSize(find.byType(DragTarget<bool>)), Size.zero);
   });
 }
