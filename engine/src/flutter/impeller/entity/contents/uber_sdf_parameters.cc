@@ -47,4 +47,25 @@ UberSDFParameters UberSDFParameters::MakeCircle(
                            .stroke = stroke};
 }
 
+UberSDFParameters UberSDFParameters::MakeRoundedRect(
+    Color color,
+    const Rect& rect,
+    const Vector4& radii,
+    std::optional<StrokeParameters> stroke) {
+  Point size = Point(rect.GetSize() * 0.5f);
+
+  std::optional<StrokeParameters> adjusted_stroke =
+      stroke && stroke->join == Join::kMiter && stroke->miter_limit < kSqrt2
+          ? std::make_optional(StrokeParameters(
+                {.width = stroke->width, .join = Join::kBevel}))
+          : stroke;
+
+  return UberSDFParameters{.type = Type::kRoundedRect,
+                           .color = color,
+                           .center = rect.GetCenter(),
+                           .size = size,
+                           .stroke = adjusted_stroke,
+                           .radii = radii};
+}
+
 }  // namespace impeller

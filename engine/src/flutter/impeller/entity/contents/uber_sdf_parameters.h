@@ -11,6 +11,7 @@
 #include "impeller/geometry/point.h"
 #include "impeller/geometry/rect.h"
 #include "impeller/geometry/stroke_parameters.h"
+#include "impeller/geometry/vector.h"
 
 namespace impeller {
 
@@ -24,6 +25,7 @@ struct UberSDFParameters {
   enum class Type {
     kCircle,
     kRect,
+    kRoundedRect,
   };
 
   /// Creates UberSDFParameters for a rectangle.
@@ -36,6 +38,13 @@ struct UberSDFParameters {
                                       const Point& center,
                                       Scalar radius,
                                       std::optional<StrokeParameters> stroke);
+
+  /// Creates UberSDFParameters for a rounded rectangle.
+  static UberSDFParameters MakeRoundedRect(
+      Color color,
+      const Rect& rect,
+      const Vector4& radii,
+      std::optional<StrokeParameters> stroke);
 
   /// The type of shape to render.
   Type type;
@@ -52,6 +61,10 @@ struct UberSDFParameters {
 
   /// The stroke parameters. If std::nullopt, the shape is filled.
   std::optional<StrokeParameters> stroke;
+
+  /// The corner radii for a rounded rectangle.
+  /// Only used if type is kRoundedRect.
+  Vector4 radii;
 };
 
 }  // namespace impeller

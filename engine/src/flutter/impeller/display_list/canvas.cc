@@ -58,6 +58,7 @@
 #include "impeller/geometry/color.h"
 #include "impeller/geometry/constants.h"
 #include "impeller/geometry/rstransform.h"
+#include "impeller/geometry/vector.h"
 #include "impeller/renderer/command_buffer.h"
 
 namespace impeller {
@@ -950,6 +951,36 @@ void Canvas::DrawRoundRect(const RoundRect& round_rect, const Paint& paint) {
     if (AttemptDrawBlurredRRect(round_rect, paint)) {
       return;
     }
+  }
+
+  const RoundingRadii& radii = round_rect.GetRadii();
+  bool corners_circular =
+      ScalarNearlyEqual(radii.top_left.width, radii.top_left.height) &&
+      ScalarNearlyEqual(radii.top_right.width, radii.top_right.height) &&
+      ScalarNearlyEqual(radii.bottom_left.width, radii.bottom_left.height) &&
+      ScalarNearlyEqual(radii.bottom_right.width, radii.bottom_right.height);
+
+  if (renderer_.GetContext()->GetFlags().use_sdfs &&
+      !paint.mask_blur_descriptor.has_value() && corners_circular) {
+    auto params = UberSDFParameters::MakeRoundedRect(
+        /*color=*/paint.color, /*rect=*/round_rect.GetBounds(),
+        /*radii=*/
+        Vector4(radii.top_left.width, radii.top_right.width,
+                radii.bottom_left.width, radii.bottom_right.width),
+        /*stroke=*/paint.style == Paint::Style::kStroke
+            ? std::make_optional(paint.stroke)
+            : std::nullopt);
+    auto geometry = std::make_unique<UberSDFGeometry>(params);
+    auto contents = UberSDFContents::Make(params, std::move(geometry));
+
+    Entity entity;
+    entity.SetTransform(GetCurrentTransform());
+    entity.SetBlendMode(paint.blend_mode);
+
+    const Geometry* geom = contents->GetGeometry();
+
+    AddRenderSDFEntityToCurrentPass(entity, geom, paint, std::move(contents));
+    return;
   }
 
   if (round_rect.GetRadii().AreAllCornersSame() &&

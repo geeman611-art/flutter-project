@@ -16,6 +16,7 @@ uniform FragInfo {
   float aa_pixels;
   float stroked;
   float type;
+  vec4 radii;
 }
 frag_info;
 
@@ -50,39 +51,47 @@ float distanceFromChamferRect(vec2 p, vec2 b, float chamfer) {
   return length(d);
 }
 
+float distanceFromRoundedRect(in vec2 p, in vec2 b, in vec4 r) {
+  r.xy = (p.x > 0.0) ? r.xy : r.zw;
+  r.x = (p.y > 0.0) ? r.x : r.y;
+  vec2 q = abs(p) - b + r.x;
+  return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r.x;
+}
+
 float filledSDF(vec2 p) {
   if (frag_info.type < 0.5) {  // Circle
     return distanceFromCircle(p, frag_info.size.x);
-  } else {  // Rect
+  } else if (frag_info.type < 1.5) {  // Rect
     return distanceFromRect(p, frag_info.size);
+  } else {  // Rounded Rect
+    return distanceFromRoundedRect(p, frag_info.size, frag_info.radii);
   }
 }
 
 float strokedSDF(vec2 p) {
   float half_stroke = max(frag_info.stroke_width, 0.0) * 0.5;
-  float outer;
-  float inner;
 
   if (frag_info.type < 0.5) {  // Circle
-    outer = distanceFromCircle(p, frag_info.size.x + half_stroke);
-    inner = distanceFromCircle(p, frag_info.size.x - half_stroke);
-  } else {                              // Rect
+    float outer = distanceFromCircle(p, frag_info.size.x + half_stroke);
+    float inner = distanceFromCircle(p, frag_info.size.x - half_stroke);
+    return max(outer, -inner);
+  } else if (frag_info.type < 1.5) {  // Rect
+    float outer;
+    float inner;
     if (frag_info.stroke_join < 0.5) {  // Miter
-      // Rectangle expanded by half_stroke
       outer = distanceFromRect(p, frag_info.size + half_stroke);
     } else if (frag_info.stroke_join < 1.5) {  // Bevel
-      // Rectangle expanded by half_stroke, with half_stroke chamfer
       outer =
           distanceFromChamferRect(p, frag_info.size + half_stroke, half_stroke);
     } else {  // Round
-      // Rectangle sdf expanded by half_stroke, to give a half_stroke radius
-      // https://www.shadertoy.com/view/NfXSDr
       outer = distanceFromRect(p, frag_info.size) - half_stroke;
     }
     inner = distanceFromRect(p, frag_info.size - half_stroke);
+    return max(outer, -inner);
+  } else {  // Rounded Rect
+    float d = distanceFromRoundedRect(p, frag_info.size, frag_info.radii);
+    return abs(d) - half_stroke;
   }
-
-  return max(outer, -inner);
 }
 
 void main() {
