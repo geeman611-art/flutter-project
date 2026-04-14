@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+/// @docImport 'scroll_physics.dart';
+library;
+
 import 'package:meta/meta.dart' show experimental;
 
 import 'framework.dart';
@@ -9,7 +12,6 @@ import 'notification_listener.dart';
 import 'scroll_configuration.dart';
 import 'scroll_metrics.dart';
 import 'scroll_notification.dart';
-import 'scroll_physics.dart';
 import 'scrollable.dart';
 
 /// A wrapper widget that enables browser-driven scrolling, forwards

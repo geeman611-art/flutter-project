@@ -159,6 +159,28 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     });
 
+    testWidgets('dispose triggers disableBrowserScrolling and clears binding', (tester) async {
+      await tester.pumpWidget(_buildTestApp(controller));
+      await tester.pump();
+
+      expect(ScrollableState.browserScrollViewBinding, isNotNull);
+
+      // Capture the binding before it is cleared on teardown, so we can inspect
+      // its call log after the widget is disposed.
+      final binding = ScrollableState.browserScrollViewBinding!;
+      binding.calls.clear();
+
+      // Replace the widget tree with something that has no BrowserScrollable.
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+
+      // The static binding must be cleared on teardown.
+      expect(ScrollableState.browserScrollViewBinding, isNull);
+
+      // disableBrowserScrolling must have been recorded by the captured binding.
+      expect(binding.calls.where((c) => c['method'] == 'disableBrowserScrolling'), isNotEmpty);
+    });
+
     testWidgets('controller swap re-registers callback', (tester) async {
       await tester.pumpWidget(_buildTestApp(controller));
       await tester.pump();
@@ -413,6 +435,30 @@ void main() {
       expect(controller.position.pixels, closeTo(500.0, 1.0));
     });
 
+    testWidgets('jumpTo delegates to browser and does not move pixels directly – via controller', (tester) async {
+      await tester.pumpWidget(_buildTestApp(controller));
+      await tester.pump();
+
+      _clearCalls();
+
+      // jumpTo on the outermost BrowserScrollPhysics scrollable must delegate
+      // to the browser rather than moving pixels in Dart directly.
+      controller.jumpTo(300);
+      await tester.pump();
+
+      // pixels does not change until the browser fires onBrowserScroll back.
+      expect(controller.position.pixels, closeTo(0.0, 1.0));
+
+      final List<Map<String, Object?>> scrollToCalls = _callsOf('browserScrollTo');
+      expect(scrollToCalls, isNotEmpty);
+      expect(scrollToCalls.last['args']! as double, closeTo(300.0, 1.0));
+
+      // simulate the browser responding, which syncs pixels
+      _simulateOnScroll(300);
+      await tester.pump();
+      expect(controller.position.pixels, closeTo(300.0, 1.0));
+    });
+
     testWidgets('animateTo delegates to browser smooth scroll', (tester) async {
       await tester.pumpWidget(_buildTestApp(controller));
       await tester.pump();
@@ -621,6 +667,40 @@ void main() {
         isNotEmpty,
         reason: 'Inner scrollable at bottom boundary should forward delta to engine',
       );
+    });
+
+    testWidgets('scrollable without BrowserScrollable binding scrolls normally in Dart', (
+      tester,
+    ) async {
+      // Build a plain scrollable with NO BrowserScrollable wrapper.
+      // applyUserOffset should take the "no browser binding" path and move
+      // pixels directly in Dart.
+      final controller2 = ScrollController();
+      addTearDown(controller2.dispose);
+
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: MediaQuery(
+            data: const MediaQueryData(),
+            child: ListView.builder(
+              controller: controller2,
+              itemCount: 20,
+              itemBuilder: (context, index) => SizedBox(height: 200.0, child: Text('Item $index')),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // No browser binding should be set.
+      expect(ScrollableState.browserScrollViewBinding, isNull);
+
+      // A drag should move pixels directly via normal Dart physics.
+      await tester.drag(find.byType(Scrollable), const Offset(0, -300));
+      await tester.pump();
+
+      expect(controller2.position.pixels, greaterThan(0.0));
     });
 
     testWidgets('inner scrollable scrolls independently without BrowserScrollPhysics', (

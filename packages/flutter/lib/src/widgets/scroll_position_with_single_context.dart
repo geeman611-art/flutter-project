@@ -131,23 +131,37 @@ class ScrollPositionWithSingleContext extends ScrollPosition implements ScrollAc
   void applyUserOffset(double delta) {
     updateUserScrollDirection(delta > 0.0 ? ScrollDirection.forward : ScrollDirection.reverse);
 
-    final bool wasAtMin = pixels <= minScrollExtent;
-    final bool wasAtMax = pixels >= maxScrollExtent;
-
-    setPixels(pixels - physics.applyPhysicsToUserOffset(this, delta));
-
-    // When a nested scrollable hits its boundary during a touch drag,
-    // forward the leftover delta to the browser via the dart:ui binding
-    // so the outer page scrolls. This only fires when browser scrolling
-    // is active. Desktop wheel events are handled separately by the
-    // engine's pointer_binding wheel interceptor.
     final BrowserScrollViewBinding? binding = ScrollableState.browserScrollViewBinding;
+    final double proposed = pixels - physics.applyPhysicsToUserOffset(this, delta);
+
     if (binding != null) {
-      final bool atBoundaryDown = delta < 0 && (wasAtMax || pixels >= maxScrollExtent);
-      final bool atBoundaryUp = delta > 0 && (wasAtMin || pixels <= minScrollExtent);
-      if (atBoundaryDown || atBoundaryUp) {
-        binding.browserScrollBy(-delta);
+      // When browser scrolling is active, clamp pixels at each boundary and
+      // forward the excess to the browser so the outer page scrolls.
+      //
+      // At maxScrollExtent (bottom): clamping prevents the inner list from
+      // rubber-band bouncing while the parent simultaneously scrolls
+      // (double-scroll artifact).
+      //
+      // At minScrollExtent (top): clamping keeps pixels at the boundary while
+      // didOverscrollBy dispatches an OverscrollNotification, which
+      // RefreshIndicator needs to reveal itself. This mirrors how
+      // RefreshIndicator works with ClampingScrollPhysics on Android — the
+      // indicator accumulates the overscroll amount from the notification, not
+      // from pixels going negative.
+      if (proposed > maxScrollExtent) {
+        final double excess = proposed - maxScrollExtent;
+        setPixels(maxScrollExtent);
+        binding.browserScrollBy(excess);
+      } else if (proposed < minScrollExtent) {
+        final double excess = proposed - minScrollExtent;
+        setPixels(minScrollExtent);
+        didOverscrollBy(excess);
+        binding.browserScrollBy(excess);
+      } else {
+        setPixels(proposed);
       }
+    } else {
+      setPixels(proposed);
     }
   }
 
