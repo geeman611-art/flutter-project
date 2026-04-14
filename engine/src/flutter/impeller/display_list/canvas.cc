@@ -831,25 +831,21 @@ void Canvas::DrawRect(const Rect& rect, const Paint& paint) {
     }
   }
 
-  Entity entity;
-  entity.SetTransform(GetCurrentTransform());
-  entity.SetBlendMode(paint.blend_mode);
-
   if (renderer_.GetContext()->GetFlags().use_sdfs &&
       !paint.mask_blur_descriptor.has_value()) {
     auto params = UberSDFParameters::MakeRect(
-        /*color=*/paint.color, /*rect=*/rect,
+        /*color=*/paint.color,
+        /*rect=*/rect,
         /*stroke=*/paint.style == Paint::Style::kStroke
             ? std::make_optional(paint.stroke)
             : std::nullopt);
-    auto geometry = std::make_unique<UberSDFGeometry>(params);
-    auto contents = UberSDFContents::Make(params, std::move(geometry));
-
-    const Geometry* geom = contents->GetGeometry();
-
-    AddRenderSDFEntityToCurrentPass(entity, geom, paint, std::move(contents));
+    AddRenderSDFEntityToCurrentPass(paint, params);
     return;
   }
+
+  Entity entity;
+  entity.SetTransform(GetCurrentTransform());
+  entity.SetBlendMode(paint.blend_mode);
 
   if (paint.style == Paint::Style::kStroke) {
     StrokeRectGeometry geom(rect, paint.stroke);
@@ -965,23 +961,15 @@ void Canvas::DrawRoundRect(const RoundRect& round_rect, const Paint& paint) {
   if (renderer_.GetContext()->GetFlags().use_sdfs &&
       !paint.mask_blur_descriptor.has_value() && AreCornersCircular(radii)) {
     auto params = UberSDFParameters::MakeRoundedRect(
-        /*color=*/paint.color, /*rect=*/round_rect.GetBounds(),
+        /*color=*/paint.color,
+        /*rect=*/round_rect.GetBounds(),
         /*radii=*/
         Vector4(radii.top_left.width, radii.top_right.width,
                 radii.bottom_left.width, radii.bottom_right.width),
         /*stroke=*/paint.style == Paint::Style::kStroke
             ? std::make_optional(paint.stroke)
             : std::nullopt);
-    auto geometry = std::make_unique<UberSDFGeometry>(params);
-    auto contents = UberSDFContents::Make(params, std::move(geometry));
-
-    Entity entity;
-    entity.SetTransform(GetCurrentTransform());
-    entity.SetBlendMode(paint.blend_mode);
-
-    const Geometry* geom = contents->GetGeometry();
-
-    AddRenderSDFEntityToCurrentPass(entity, geom, paint, std::move(contents));
+    AddRenderSDFEntityToCurrentPass(paint, params);
     return;
   }
 
@@ -1067,16 +1055,7 @@ void Canvas::DrawCircle(const Point& center,
         /*stroke=*/paint.style == Paint::Style::kStroke
             ? std::make_optional(paint.stroke)
             : std::nullopt);
-    auto geometry = std::make_unique<UberSDFGeometry>(params);
-    auto contents = UberSDFContents::Make(params, std::move(geometry));
-
-    Entity entity;
-    entity.SetTransform(GetCurrentTransform());
-    entity.SetBlendMode(paint.blend_mode);
-
-    const Geometry* geom = contents->GetGeometry();
-
-    AddRenderSDFEntityToCurrentPass(entity, geom, paint, std::move(contents));
+    AddRenderSDFEntityToCurrentPass(paint, params);
     return;
   }
 
@@ -1982,11 +1961,19 @@ void Canvas::DrawTextFrame(const std::shared_ptr<TextFrame>& text_frame,
   AddRenderEntityToCurrentPass(entity, false);
 }
 
-void Canvas::AddRenderSDFEntityToCurrentPass(
-    Entity& entity,
-    const Geometry* geom,
-    const Paint& paint,
-    std::shared_ptr<ColorSourceContents> contents) {
+void Canvas::AddRenderSDFEntityToCurrentPass(const Paint& paint,
+                                             UberSDFParameters params) {
+  Entity entity;
+  entity.SetTransform(GetCurrentTransform());
+  entity.SetBlendMode(paint.blend_mode);
+
+  if (paint.color_source) {
+    params.color = Color::White();
+  }
+  auto geometry = std::make_unique<UberSDFGeometry>(params);
+  auto contents = UberSDFContents::Make(params, std::move(geometry));
+  const Geometry* geom = contents->GetGeometry();
+
   if (paint.color_source) {
     // UberSDF doesn't perform things like gradients so we blend the SDF
     // with the color source.
