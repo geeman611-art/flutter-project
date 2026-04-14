@@ -1,0 +1,27 @@
+import 'dart:async';
+import 'package:dart_skills_lint/dart_skills_lint.dart';
+import 'package:logging/logging.dart';
+import 'package:test/test.dart';
+
+void main() {
+  test('Validate Flutter Skills', () async {
+    Logger.root.level = Level.ALL;
+    final StreamSubscription<LogRecord> subscription = Logger.root.onRecord.listen((record) {
+      print(record.message);
+    });
+
+    try {
+      final bool isValid = await validateSkills(
+        skillDirPaths: ['../../.agents/skills'],
+        resolvedRules: {
+          'check-relative-paths': AnalysisSeverity.error,
+          'check-absolute-paths': AnalysisSeverity.error,
+          'check-trailing-whitespace': AnalysisSeverity.error,
+        },
+      );
+      expect(isValid, isTrue, reason: 'Skills validation failed. See above for details.');
+    } finally {
+      await subscription.cancel();
+    }
+  });
+}
