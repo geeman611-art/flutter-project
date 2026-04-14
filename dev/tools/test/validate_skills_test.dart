@@ -5,6 +5,7 @@ import 'package:test/test.dart';
 
 void main() {
   test('Validate Flutter Skills', () async {
+    final Level oldLevel = Logger.root.level;
     Logger.root.level = Level.ALL;
     final StreamSubscription<LogRecord> subscription = Logger.root.onRecord.listen((record) {
       print(record.message);
@@ -21,6 +22,7 @@ void main() {
       );
       expect(isValid, isTrue, reason: 'Skills validation failed. See above for details.');
     } finally {
+      Logger.root.level = oldLevel;
       await subscription.cancel();
     }
   });

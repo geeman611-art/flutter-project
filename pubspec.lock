@@ -182,7 +182,7 @@ packages:
     dependency: transitive
     description:
       path: "tool/dart_skills_lint"
-      ref: HEAD
+      ref: "9eff6bbcfa27c2724ea9ad67a611c19fe77057ea"
       resolved-ref: "9eff6bbcfa27c2724ea9ad67a611c19fe77057ea"
       url: "https://github.com/flutter/skills"
     source: git
@@ -1020,10 +1020,10 @@ packages:
     dependency: "direct main"
     description:
       name: vm_service
-      sha256: "45caa6c5917fa127b5dbcfbd1fa60b14e583afdc08bfc96dda38886ca252eb60"
+      sha256: "046d3928e16fa4dc46e8350415661755ab759d9fc97fc21b5ab295f71e4f0499"
       url: "https://pub.dev"
     source: hosted
-    version: "15.0.2"
+    version: "15.1.0"
   vm_snapshot_analysis:
     dependency: "direct main"
     description:
@@ -1108,10 +1108,10 @@ packages:
     dependency: "direct main"
     description:
       name: webview_flutter_wkwebview
-      sha256: d7219cfabc6f5fc2032e0fa980ec36d71f308a35a823395af1abc34d9a2ede83
+      sha256: e15d8828e014291324a4d0cf6e272090167f4fa5673ffcf8fe446f4a4cd35861
       url: "https://pub.dev"
     source: hosted
-    version: "3.24.2"
+    version: "3.24.3"
   xdg_directories:
     dependency: "direct main"
     description:
