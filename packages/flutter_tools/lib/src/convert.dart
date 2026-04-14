@@ -9,7 +9,6 @@ import 'dart:convert' as cnv show Utf8Decoder, utf8;
 
 import 'package:meta/meta.dart';
 
-import 'base/common.dart';
 export 'dart:convert' hide Utf8Codec, Utf8Decoder, utf8;
 
 /// The original utf8 encoding for testing overrides only.
@@ -24,7 +23,8 @@ const Encoding utf8ForTesting = cnv.utf8;
 ///
 /// Occasionally people end up in a situation where we try to decode bytes
 /// that aren't UTF-8 and we're not quite sure how this is happening.
-/// This tells people to report a bug when they see this.
+/// This prints a warning when they see this, but continues execution
+/// to avoid disrupting the developer workflow.
 class Utf8Codec extends Encoding {
   const Utf8Codec({this.reportErrors = true});
 
@@ -54,14 +54,12 @@ class Utf8Decoder extends Converter<List<int>, String> {
   String convert(List<int> input, [int start = 0, int? end]) {
     final String result = _systemDecoder.convert(input, start, end);
     // Finding a Unicode replacement character indicates that the input
-    // was malformed.
+    // was malformed. Print a warning but don't crash the tool.
     if (reportErrors && result.contains('\u{FFFD}')) {
-      throwToolExit(
-        'Bad UTF-8 encoding (U+FFFD; REPLACEMENT CHARACTER) found while decoding string: $result. '
-        'The Flutter team would greatly appreciate if you could file a bug explaining '
-        'exactly what you were doing when this happened:\n'
-        'https://github.com/flutter/flutter/issues/new/choose\n'
-        'The source bytes were:\n$input\n\n',
+      // ignore: avoid_print
+      print(
+        'Warning: Bad UTF-8 encoding (U+FFFD; REPLACEMENT CHARACTER) found while decoding string: $result. '
+        'The source bytes were:\n$input\n',
       );
     }
     return result;
