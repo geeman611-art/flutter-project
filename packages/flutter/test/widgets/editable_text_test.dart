@@ -7716,10 +7716,9 @@ void main() {
     'keyboard text selection works (RawKeyEvent)',
     (WidgetTester tester) async {
       debugKeyEventSimulatorTransitModeOverride = KeyDataTransitMode.rawKeyData;
+      addTearDown(() => debugKeyEventSimulatorTransitModeOverride = null);
 
       await testTextEditing(tester, targetPlatform: defaultTargetPlatform);
-
-      debugKeyEventSimulatorTransitModeOverride = null;
 
       // On web, using keyboard for selection is handled by the browser.
     },
@@ -7731,10 +7730,9 @@ void main() {
     'keyboard text selection works (ui.KeyData then RawKeyEvent)',
     (WidgetTester tester) async {
       debugKeyEventSimulatorTransitModeOverride = KeyDataTransitMode.keyDataThenRawKeyData;
+      addTearDown(() => debugKeyEventSimulatorTransitModeOverride = null);
 
       await testTextEditing(tester, targetPlatform: defaultTargetPlatform);
-
-      debugKeyEventSimulatorTransitModeOverride = null;
 
       // On web, using keyboard for selection is handled by the browser.
     },
