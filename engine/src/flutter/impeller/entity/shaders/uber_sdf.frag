@@ -51,6 +51,8 @@ float distanceFromChamferRect(vec2 p, vec2 b, float chamfer) {
   return length(d);
 }
 
+// Math is exact for rounded rect.
+// See https://iquilezles.org/articles/distfunctions2d/
 float distanceFromRoundedRect(in vec2 p, in vec2 b, in vec4 r) {
   r.xy = (p.x > 0.0) ? r.xy : r.zw;
   r.x = (p.y > 0.0) ? r.x : r.y;
