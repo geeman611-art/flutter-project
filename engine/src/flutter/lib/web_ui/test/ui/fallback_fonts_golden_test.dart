@@ -196,6 +196,114 @@ void testMain() {
       // TODO(hterkelsen): https://github.com/flutter/flutter/issues/71520
     });
 
+    // https://github.com/flutter/flutter/issues/157831
+    test('can render keycap emoji with variation selector', () async {
+      expect(renderer.fontCollection.fontFallbackManager!.globalFontFallbacks, <String>['Roboto']);
+
+      // Creating this paragraph should cause us to start to download the
+      // fallback font.
+      final text = String.fromCharCodes(<int>[
+        0x0023, 0xFE0F, 0x20E3, // #️⃣
+        0x002A, 0xFE0F, 0x20E3, // *️⃣
+        0x000A, // newline
+        0x0030, 0xFE0F, 0x20E3, // 0️⃣
+      ]);
+      var pb = ui.ParagraphBuilder(ui.ParagraphStyle());
+      pb.addText(text);
+      pb.build().layout(const ui.ParagraphConstraints(width: 1000));
+
+      await renderer.fontCollection.fontFallbackManager!.debugWhenIdle();
+
+      expect(downloadedFontFamilies, isNotEmpty);
+
+      final recorder = ui.PictureRecorder();
+      final canvas = ui.Canvas(recorder);
+
+      pb = ui.ParagraphBuilder(ui.ParagraphStyle());
+      pb.pushStyle(ui.TextStyle(fontSize: 32));
+      pb.addText(text);
+      pb.pop();
+      final ui.Paragraph paragraph = pb.build();
+      paragraph.layout(const ui.ParagraphConstraints(width: 1000));
+
+      canvas.drawParagraph(paragraph, ui.Offset.zero);
+      await drawPictureUsingCurrentRenderer(recorder.endRecording());
+
+      await matchGoldenFile('ui_font_fallback_keycap_emoji.png', region: kDefaultRegion);
+    });
+
+    // https://github.com/flutter/flutter/issues/157831
+    test('can render symbol emoji with variation selector', () async {
+      expect(renderer.fontCollection.fontFallbackManager!.globalFontFallbacks, <String>['Roboto']);
+
+      // Creating this paragraph should cause us to start to download the
+      // fallback font.
+      final text = String.fromCharCodes(<int>[
+        0x2648, 0xFE0F, // ♈️
+        0x264B, 0xFE0F, // ♋️
+        0x000A, // newline
+        0x2650, 0xFE0F, // ♐️
+      ]);
+      var pb = ui.ParagraphBuilder(ui.ParagraphStyle());
+      pb.addText(text);
+      pb.build().layout(const ui.ParagraphConstraints(width: 1000));
+
+      await renderer.fontCollection.fontFallbackManager!.debugWhenIdle();
+
+      expect(downloadedFontFamilies, isNotEmpty);
+
+      final recorder = ui.PictureRecorder();
+      final canvas = ui.Canvas(recorder);
+
+      pb = ui.ParagraphBuilder(ui.ParagraphStyle());
+      pb.pushStyle(ui.TextStyle(fontSize: 32));
+      pb.addText(text);
+      pb.pop();
+      final ui.Paragraph paragraph = pb.build();
+      paragraph.layout(const ui.ParagraphConstraints(width: 1000));
+
+      canvas.drawParagraph(paragraph, ui.Offset.zero);
+      await drawPictureUsingCurrentRenderer(recorder.endRecording());
+
+      await matchGoldenFile('ui_font_fallback_symbol_emoji.png', region: kDefaultRegion);
+    });
+
+    // https://github.com/flutter/flutter/issues/157831
+    test('can render symbol emoji with text variation selector', () async {
+      expect(renderer.fontCollection.fontFallbackManager!.globalFontFallbacks, <String>['Roboto']);
+
+      // Creating this paragraph should cause us to start to download the
+      // fallback font.
+      final text = String.fromCharCodes(<int>[
+        0x2648, 0xFE0E, // ♈︎
+        0x264B, 0xFE0E, // ♋︎
+        0x000A, // newline
+        0x2650, 0xFE0E, // ♐︎
+      ]);
+      var pb = ui.ParagraphBuilder(ui.ParagraphStyle());
+      pb.addText(text);
+      pb.build().layout(const ui.ParagraphConstraints(width: 1000));
+
+      await renderer.fontCollection.fontFallbackManager!.debugWhenIdle();
+
+      expect(downloadedFontFamilies, isNotEmpty);
+
+      final recorder = ui.PictureRecorder();
+      final canvas = ui.Canvas(recorder);
+
+      pb = ui.ParagraphBuilder(ui.ParagraphStyle());
+      pb.pushStyle(ui.TextStyle(fontSize: 32));
+      pb.addText(text);
+      pb.pop();
+      final ui.Paragraph paragraph = pb.build();
+      paragraph.layout(const ui.ParagraphConstraints(width: 1000));
+
+      canvas.drawParagraph(paragraph, ui.Offset.zero);
+      await drawPictureUsingCurrentRenderer(recorder.endRecording());
+
+      await matchGoldenFile('ui_font_fallback_symbol_emoji_text.png', region: kDefaultRegion);
+    });
+
     /// Attempts to render [text] and verifies that [expectedFamilies] are downloaded.
     ///
     /// Then it does the same, but asserts that the families aren't downloaded again
