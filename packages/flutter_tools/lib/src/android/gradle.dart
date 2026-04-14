@@ -32,6 +32,7 @@ import '../project.dart';
 import 'android_builder.dart';
 import 'android_sdk.dart';
 import 'android_studio.dart';
+import 'application_package.dart' show AndroidApk;
 import 'gradle_errors.dart';
 import 'gradle_utils.dart';
 import 'gradle_utils.dart' as gradle;
@@ -236,6 +237,7 @@ class AndroidGradleBuilder implements AndroidBuilder {
     required FlutterProject project,
     required AndroidBuildInfo androidBuildInfo,
     required String target,
+    Set<String>? androidShellArguments,
     bool configOnly = false,
   }) async {
     await buildGradleApp(
@@ -245,6 +247,7 @@ class AndroidGradleBuilder implements AndroidBuilder {
       isBuildingBundle: false,
       localGradleErrors: gradleErrors,
       configOnly: configOnly,
+      androidShellArguments: androidShellArguments,
       maxRetries: 1,
     );
   }
@@ -449,6 +452,7 @@ class AndroidGradleBuilder implements AndroidBuilder {
     required bool isBuildingBundle,
     required List<GradleHandledError> localGradleErrors,
     required bool configOnly,
+    Set<String>? androidShellArguments,
     bool validateDeferredComponents = true,
     bool deferredComponentsEnabled = false,
     int retry = 0,
@@ -494,6 +498,11 @@ class AndroidGradleBuilder implements AndroidBuilder {
     final String assembleTask = isBuildingBundle
         ? getBundleTaskFor(buildInfo)
         : getAssembleTaskFor(buildInfo);
+
+    // Add engine shell arugments to be injected into the manifest.
+    if (androidShellArguments != null && androidShellArguments.isNotEmpty) {
+      options.add('-PandroidShellArguments=${jsonEncode(androidShellArguments.toList())}');
+    }
 
     if (_logger.isVerbose) {
       options.add('--full-stacktrace');

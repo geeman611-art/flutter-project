@@ -563,13 +563,51 @@ class AndroidDevice extends Device {
         return LaunchResult.failed();
     }
 
+    // Retrieve flags that should be set as reflected by set debugging options.
+    final Set<String> androidShellArguments = debuggingOptions.getAndroidLaunchArguments();
+
+    // Retrieve additional flags from platfrom aguments and startApp parameters.
+    final bool traceStartup = platformArgs['trace-startup'] as bool? ?? false;
+    androidShellArguments.addAll(<String>[
+      if (traceStartup) ...<String>['--trace-startup'],
+      if (route != null) ...<String>['--route=$route'],
+    ]);
+
+    // Determine if the APK needs to be rebuilt due to the flags specified on the
+    // command line changing between invocations.
+    //
+    // This is required because flags specified on the command line or by default
+    // by the framework are passed to the Flutter Android embedding to be loaded by
+    // writing them to the application manifest via a custom Gradle task implemented in
+    // packages/flutter_tools/gradle/src/main/kotlin/tasks/GenerateEngineFlagsManifestTask.kt
+    // and loaded in
+    // engine/src/flutter/shell/platform/android/io/flutter/embedding/engine/loader/FlutterLoader.java.
+    // So, even if prebuiltApplication is true and the developer wishes to skip rebuilding
+    // the APK, the manifest will need to be regenerated. However, this should be faster than a
+    // typical APK build due to built-in Gradle optimizations.
+    var shouldRegenerateEngineShellArgsManifest = false;
+    final Set<String>? previousEngineShellArguments = package?.engineShellArgs;
+    if (previousEngineShellArguments != null) {
+      shouldRegenerateEngineShellArgsManifest =
+          !previousEngineShellArguments.containsAll(androidShellArguments) ||
+          !androidShellArguments.containsAll(previousEngineShellArguments) ||
+          previousEngineShellArguments.length != androidShellArguments.length;
+    }
+
     if (!prebuiltApplication ||
+        shouldRegenerateEngineShellArgsManifest ||
         _androidSdk.licensesAvailable && _androidSdk.latestVersion == null) {
-      _logger.printTrace('Building APK');
+      final bool apkBuildNotExpected =
+          shouldRegenerateEngineShellArgsManifest && !prebuiltApplication;
+      final buildApkLoggerMessage = apkBuildNotExpected
+          ? 'Re-building APK instead of using prebuilt application binary to include updated engine flags'
+          : 'Building APK';
+      _logger.printTrace(buildApkLoggerMessage);
       final FlutterProject project = FlutterProject.current();
       await androidBuilder!.buildApk(
         project: project,
         target: mainPath ?? 'lib/main.dart',
+        androidShellArguments: androidShellArguments,
         androidBuildInfo: AndroidBuildInfo(
           debuggingOptions.buildInfo,
           targetArchs: <AndroidArch>[androidArch],
@@ -596,7 +634,6 @@ class AndroidDevice extends Device {
       return LaunchResult.failed();
     }
 
-    final bool traceStartup = platformArgs['trace-startup'] as bool? ?? false;
     ProtocolDiscovery? vmServiceDiscovery;
 
     if (debuggingOptions.debuggingEnabled) {
@@ -613,87 +650,12 @@ class AndroidDevice extends Device {
       );
     }
 
-    final String? traceAllowlist = debuggingOptions.traceAllowlist;
-    final String? traceSkiaAllowlist = debuggingOptions.traceSkiaAllowlist;
-    final String? traceToFile = debuggingOptions.traceToFile;
     final cmd = <String>[
       'shell', 'am', 'start',
       '-a', 'android.intent.action.MAIN',
       '-c', 'android.intent.category.LAUNCHER',
       '-f', '0x20000000', // FLAG_ACTIVITY_SINGLE_TOP
-      if (debuggingOptions.enableDartProfiling) ...<String>[
-        '--ez',
-        'enable-dart-profiling',
-        'true',
-      ],
-      if (debuggingOptions.profileStartup) ...<String>['--ez', 'profile-startup', 'true'],
-      if (traceStartup) ...<String>['--ez', 'trace-startup', 'true'],
-      if (route != null) ...<String>['--es', 'route', route],
-      if (debuggingOptions.enableSoftwareRendering) ...<String>[
-        '--ez',
-        'enable-software-rendering',
-        'true',
-      ],
-      if (debuggingOptions.skiaDeterministicRendering) ...<String>[
-        '--ez',
-        'skia-deterministic-rendering',
-        'true',
-      ],
-      if (debuggingOptions.traceSkia) ...<String>['--ez', 'trace-skia', 'true'],
-      if (traceAllowlist != null) ...<String>['--es', 'trace-allowlist', traceAllowlist],
-      if (traceSkiaAllowlist != null) ...<String>[
-        '--es',
-        'trace-skia-allowlist',
-        traceSkiaAllowlist,
-      ],
-      if (debuggingOptions.traceSystrace) ...<String>['--ez', 'trace-systrace', 'true'],
-      if (traceToFile != null) ...<String>['--es', 'trace-to-file', traceToFile],
-      if (debuggingOptions.endlessTraceBuffer) ...<String>['--ez', 'endless-trace-buffer', 'true'],
-      if (debuggingOptions.profileMicrotasks) ...<String>['--ez', 'profile-microtasks', 'true'],
-      if (debuggingOptions.purgePersistentCache) ...<String>[
-        '--ez',
-        'purge-persistent-cache',
-        'true',
-      ],
-      if (debuggingOptions.enableImpeller == ImpellerStatus.enabled) ...<String>[
-        '--ez',
-        'enable-impeller',
-        'true',
-      ],
-      if (debuggingOptions.enableImpeller == ImpellerStatus.disabled) ...<String>[
-        '--ez',
-        'enable-impeller',
-        'false',
-      ],
-      if (debuggingOptions.enableFlutterGpu) ...<String>['--ez', 'enable-flutter-gpu', 'true'],
-      if (debuggingOptions.enableVulkanValidation) ...<String>[
-        '--ez',
-        'enable-vulkan-validation',
-        'true',
-      ],
       if (debuggingOptions.debuggingEnabled) ...<String>[
-        if (debuggingOptions.buildInfo.isDebug) ...<String>[
-          ...<String>['--ez', 'enable-checked-mode', 'true'],
-          ...<String>['--ez', 'verify-entry-points', 'true'],
-        ],
-        if (debuggingOptions.startPaused) ...<String>['--ez', 'start-paused', 'true'],
-        if (debuggingOptions.disableServiceAuthCodes) ...<String>[
-          '--ez',
-          'disable-service-auth-codes',
-          'true',
-        ],
-        if (debuggingOptions.dartFlags.isNotEmpty) ...<String>[
-          '--es',
-          'dart-flags',
-          debuggingOptions.dartFlags,
-        ],
-        if (debuggingOptions.enableHcpp) ...<String>[
-          '--ez',
-          'enable-hcpp-and-surface-control',
-          'true',
-        ],
-        if (debuggingOptions.useTestFonts) ...<String>['--ez', 'use-test-fonts', 'true'],
-        if (debuggingOptions.verboseSystemLogs) ...<String>['--ez', 'verbose-logging', 'true'],
         if (userIdentifier != null) ...<String>['--user', userIdentifier],
       ],
       builtPackage.launchActivity,

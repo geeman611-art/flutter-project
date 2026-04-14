@@ -37,7 +37,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import org.junit.Test;
@@ -282,40 +284,59 @@ public class FlutterLoaderTest {
     String librarySoFileName = "library.so";
     Path testPath = internalStorageDirAsPathObj.resolve(librarySoFileName);
 
-    String path = testPath.toString();
-    Bundle metadata = new Bundle();
-    metadata.putString(
-        "io.flutter.embedding.engine.loader.FlutterLoader.aot-shared-library-name", path);
-    ctx.getApplicationInfo().metaData = metadata;
+    for (TestFlagType flagType : TestFlagType.values()) {
+      String path = testPath.toString();
+      String commandLineArg = "--aot-shared-library-name=" + path;
+      String[] paramArgs = null;
+      Bundle metadata = new Bundle();
 
-    flutterLoader.ensureInitializationComplete(ctx, null);
+      switch (flagType) {
+        case MANIFEST:
+          metadata.putString(
+              "io.flutter.embedding.engine.loader.FlutterLoader.aot-shared-library-name", path);
+          break;
+        case COMMANDLINE:
+          metadata.putString("androidEngineShellArgs", "[\"" + commandLineArg + "\"]");
+          break;
+        case RUNTIME:
+          // Set flag via ensureInitializationComplete parameter.
+          paramArgs = new String[] {commandLineArg};
+          break;
+      }
 
-    ArgumentCaptor<String[]> shellArgsCaptor = ArgumentCaptor.forClass(String[].class);
-    verify(mockFlutterJNI)
-        .init(
-            eq(ctx),
-            shellArgsCaptor.capture(),
-            anyString(),
-            anyString(),
-            anyString(),
-            anyLong(),
-            anyInt());
+      ctx.getApplicationInfo().metaData = metadata;
+      flutterLoader.ensureInitializationComplete(ctx, paramArgs);
 
-    List<String> actualArgs = Arrays.asList(shellArgsCaptor.getValue());
+      ArgumentCaptor<String[]> shellArgsCaptor = ArgumentCaptor.forClass(String[].class);
+      verify(mockFlutterJNI)
+          .init(
+              eq(ctx),
+              shellArgsCaptor.capture(),
+              anyString(),
+              anyString(),
+              anyString(),
+              anyLong(),
+              anyInt());
 
-    // This check works because the tests run in debug mode. If run in release (or JIT release)
-    // mode, actualArgs would contain the default arguments for AOT shared library name on top
-    // of aotSharedLibraryNameArg.
-    String canonicalTestPath = testPath.toFile().getCanonicalPath();
-    String canonicalAotSharedLibraryNameArg = "--aot-shared-library-name=" + canonicalTestPath;
-    assertTrue(
-        "Args sent to FlutterJni.init incorrectly did not include path " + path,
-        actualArgs.contains(canonicalAotSharedLibraryNameArg));
+      List<String> actualArgs = Arrays.asList(shellArgsCaptor.getValue());
 
-    // Reset FlutterLoader and mockFlutterJNI to make more calls to
-    // FlutterLoader.ensureInitialized and mockFlutterJNI.init for testing.
-    flutterLoader.initialized = false;
-    clearInvocations(mockFlutterJNI);
+      // This check works because the tests run in debug mode. If run in release (or JIT release)
+      // mode, actualArgs would contain the default arguments for AOT shared library name on top
+      // of aotSharedLibraryNameArg.
+      String canonicalTestPath = testPath.toFile().getCanonicalPath();
+      String canonicalAotSharedLibraryNameArg = "--aot-shared-library-name=" + canonicalTestPath;
+      assertTrue(
+          "For setting the library as type "
+              + flagType.toString()
+              + ": Args sent to FlutterJni.init incorrectly did not include path "
+              + path,
+          actualArgs.contains(canonicalAotSharedLibraryNameArg));
+
+      // Reset FlutterLoader and mockFlutterJNI to make more calls to
+      // FlutterLoader.ensureInitialized and mockFlutterJNI.init for testing.
+      flutterLoader.initialized = false;
+      clearInvocations(mockFlutterJNI);
+    }
   }
 
   @Test
@@ -336,38 +357,55 @@ public class FlutterLoaderTest {
     String librarySoFileName = "library.so";
     Path testPath = internalStorageDirAsPathObj.resolve(librarySoFileName);
 
-    String path = testPath.toString();
-    Bundle metadata = new Bundle();
-    metadata.putString("io.flutter.embedding.android.AOTSharedLibraryName", path);
-    ctx.getApplicationInfo().metaData = metadata;
+    for (TestFlagType flagType : TestFlagType.values()) {
+      String path = testPath.toString();
+      String commandLineArg = "--aot-shared-library-name=" + path;
+      String[] paramArgs = null;
+      Bundle metadata = new Bundle();
 
-    flutterLoader.ensureInitializationComplete(ctx, null, true);
+      switch (flagType) {
+        case MANIFEST:
+          metadata.putString(
+              "io.flutter.embedding.engine.loader.FlutterLoader.aot-shared-library-name", path);
+          break;
+        case COMMANDLINE:
+          metadata.putString("androidEngineShellArgs", "[\"" + commandLineArg + "\"]");
+          break;
+        case RUNTIME:
+          // Set flag via ensureInitializationComplete parameter.
+          paramArgs = new String[] {commandLineArg};
+          break;
+      }
 
-    ArgumentCaptor<String[]> shellArgsCaptor = ArgumentCaptor.forClass(String[].class);
-    verify(mockFlutterJNI)
-        .init(
-            eq(ctx),
-            shellArgsCaptor.capture(),
-            anyString(),
-            anyString(),
-            anyString(),
-            anyLong(),
-            anyInt());
-    List<String> actualArgs = Arrays.asList(shellArgsCaptor.getValue());
+      ctx.getApplicationInfo().metaData = metadata;
+      flutterLoader.ensureInitializationComplete(ctx, paramArgs, true);
 
-    // This check works because the tests run in debug mode. If run in release (or JIT release)
-    // mode, actualArgs would contain the default arguments for AOT shared library name on top
-    // of aotSharedLibraryNameArg.
-    String canonicalTestPath = testPath.toFile().getCanonicalPath();
-    String canonicalAotSharedLibraryNameArg = "--aot-shared-library-name=" + canonicalTestPath;
-    assertTrue(
-        "Args sent to FlutterJni.init incorrectly did not include path " + path,
-        actualArgs.contains(canonicalAotSharedLibraryNameArg));
+      ArgumentCaptor<String[]> shellArgsCaptor = ArgumentCaptor.forClass(String[].class);
+      verify(mockFlutterJNI)
+          .init(
+              eq(ctx),
+              shellArgsCaptor.capture(),
+              anyString(),
+              anyString(),
+              anyString(),
+              anyLong(),
+              anyInt());
+      List<String> actualArgs = Arrays.asList(shellArgsCaptor.getValue());
 
-    // Reset FlutterLoader and mockFlutterJNI to make more calls to
-    // FlutterLoader.ensureInitialized and mockFlutterJNI.init for testing.
-    flutterLoader.initialized = false;
-    clearInvocations(mockFlutterJNI);
+      // This check works because the tests run in debug mode. If run in release (or JIT release)
+      // mode, actualArgs would contain the default arguments for AOT shared library name on top
+      // of aotSharedLibraryNameArg.
+      String canonicalTestPath = testPath.toFile().getCanonicalPath();
+      String canonicalAotSharedLibraryNameArg = "--aot-shared-library-name=" + canonicalTestPath;
+      assertTrue(
+          "Args sent to FlutterJni.init incorrectly did not include path " + path,
+          actualArgs.contains(canonicalAotSharedLibraryNameArg));
+
+      // Reset FlutterLoader and mockFlutterJNI to make more calls to
+      // FlutterLoader.ensureInitialized and mockFlutterJNI.init for testing.
+      flutterLoader.initialized = false;
+      clearInvocations(mockFlutterJNI);
+    }
   }
 
   @Test
@@ -464,39 +502,59 @@ public class FlutterLoaderTest {
     };
 
     for (Path testPath : pathsToTest) {
-      String path = testPath.toString();
-      Bundle metadata = new Bundle();
-      metadata.putString("io.flutter.embedding.android.AOTSharedLibraryName", path);
-      ctx.getApplicationInfo().metaData = metadata;
+      for (TestFlagType flagType : TestFlagType.values()) {
+        String path = testPath.toString();
+        String commandLineArg = "--aot-shared-library-name=" + path;
+        String[] paramArgs = null;
+        Bundle metadata = new Bundle();
 
-      flutterLoader.ensureInitializationComplete(ctx, null);
+        switch (flagType) {
+          case MANIFEST:
+            metadata.putString(
+                "io.flutter.embedding.engine.loader.FlutterLoader.aot-shared-library-name", path);
+            break;
+          case COMMANDLINE:
+            metadata.putString("androidEngineShellArgs", "[" + "\"" + commandLineArg + "\"" + "]");
+            break;
+          case RUNTIME:
+            // Set flag via ensureInitializationComplete parameter.
+            paramArgs = new String[] {commandLineArg};
+            break;
+        }
 
-      ArgumentCaptor<String[]> shellArgsCaptor = ArgumentCaptor.forClass(String[].class);
-      verify(mockFlutterJNI)
-          .init(
-              eq(ctx),
-              shellArgsCaptor.capture(),
-              anyString(),
-              anyString(),
-              anyString(),
-              anyLong(),
-              anyInt());
+        ctx.getApplicationInfo().metaData = metadata;
+        flutterLoader.ensureInitializationComplete(ctx, paramArgs);
 
-      List<String> actualArgs = Arrays.asList(shellArgsCaptor.getValue());
+        ArgumentCaptor<String[]> shellArgsCaptor = ArgumentCaptor.forClass(String[].class);
+        verify(mockFlutterJNI)
+            .init(
+                eq(ctx),
+                shellArgsCaptor.capture(),
+                anyString(),
+                anyString(),
+                anyString(),
+                anyLong(),
+                anyInt());
 
-      // This check works because the tests run in debug mode. If run in release (or JIT release)
-      // mode, actualArgs would contain the default arguments for AOT shared library name on top
-      // of aotSharedLibraryNameArg.
-      String canonicalTestPath = testPath.toFile().getCanonicalPath();
-      String canonicalAotSharedLibraryNameArg = "--aot-shared-library-name=" + canonicalTestPath;
-      assertTrue(
-          "Args sent to FlutterJni.init incorrectly did not include path " + path,
-          actualArgs.contains(canonicalAotSharedLibraryNameArg));
+        List<String> actualArgs = Arrays.asList(shellArgsCaptor.getValue());
 
-      // Reset FlutterLoader and mockFlutterJNI to make more calls to
-      // FlutterLoader.ensureInitialized and mockFlutterJNI.init for testing.
-      flutterLoader.initialized = false;
-      clearInvocations(mockFlutterJNI);
+        // This check works because the tests run in debug mode. If run in release (or JIT release)
+        // mode, actualArgs would contain the default arguments for AOT shared library name on top
+        // of aotSharedLibraryNameArg.
+        String canonicalTestPath = testPath.toFile().getCanonicalPath();
+        String canonicalAotSharedLibraryNameArg = "--aot-shared-library-name=" + canonicalTestPath;
+        assertTrue(
+            "For flag type "
+                + flagType.toString()
+                + ": Args sent to FlutterJni.init incorrectly did not include path "
+                + path,
+            actualArgs.contains(canonicalAotSharedLibraryNameArg));
+
+        // Reset FlutterLoader and mockFlutterJNI to make more calls to
+        // FlutterLoader.ensureInitialized and mockFlutterJNI.init for testing.
+        flutterLoader.initialized = false;
+        clearInvocations(mockFlutterJNI);
+      }
     }
   }
 
@@ -542,39 +600,59 @@ public class FlutterLoaderTest {
     };
 
     for (Path testPath : pathsToTest) {
-      String path = testPath.toString();
-      Bundle metadata = new Bundle();
-      metadata.putString("io.flutter.embedding.android.AOTSharedLibraryName", path);
-      ctx.getApplicationInfo().metaData = metadata;
+      for (TestFlagType flagType : TestFlagType.values()) {
+        String path = testPath.toString();
+        String commandLineArg = "--aot-shared-library-name=" + path;
+        String[] paramArgs = null;
+        Bundle metadata = new Bundle();
 
-      flutterLoader.ensureInitializationComplete(ctx, null);
+        switch (flagType) {
+          case MANIFEST:
+            metadata.putString(
+                "io.flutter.embedding.engine.loader.FlutterLoader.aot-shared-library-name", path);
+            break;
+          case COMMANDLINE:
+            metadata.putString("androidEngineShellArgs", commandLineArg);
+            break;
+          case RUNTIME:
+            // Set flag via ensureInitializationComplete parameter.
+            paramArgs = new String[] {commandLineArg};
+            break;
+        }
 
-      ArgumentCaptor<String[]> shellArgsCaptor = ArgumentCaptor.forClass(String[].class);
-      verify(mockFlutterJNI)
-          .init(
-              eq(ctx),
-              shellArgsCaptor.capture(),
-              anyString(),
-              anyString(),
-              anyString(),
-              anyLong(),
-              anyInt());
+        ctx.getApplicationInfo().metaData = metadata;
+        flutterLoader.ensureInitializationComplete(ctx, paramArgs);
 
-      List<String> actualArgs = Arrays.asList(shellArgsCaptor.getValue());
+        ArgumentCaptor<String[]> shellArgsCaptor = ArgumentCaptor.forClass(String[].class);
+        verify(mockFlutterJNI)
+            .init(
+                eq(ctx),
+                shellArgsCaptor.capture(),
+                anyString(),
+                anyString(),
+                anyString(),
+                anyLong(),
+                anyInt());
 
-      // This check works because the tests run in debug mode. If run in release (or JIT release)
-      // mode, actualArgs would contain the default arguments for AOT shared library name on top
-      // of aotSharedLibraryNameArg.
-      String canonicalTestPath = testPath.toFile().getCanonicalPath();
-      String canonicalAotSharedLibraryNameArg = "--aot-shared-library-name=" + canonicalTestPath;
-      assertFalse(
-          "Args sent to FlutterJni.init incorrectly included canonical path " + canonicalTestPath,
-          actualArgs.contains(canonicalAotSharedLibraryNameArg));
+        List<String> actualArgs = Arrays.asList(shellArgsCaptor.getValue());
 
-      // Reset FlutterLoader and mockFlutterJNI to make more calls to
-      // FlutterLoader.ensureInitialized and mockFlutterJNI.init for testing.
-      flutterLoader.initialized = false;
-      clearInvocations(mockFlutterJNI);
+        // This check works because the tests run in debug mode. If run in release (or JIT release)
+        // mode, actualArgs would contain the default arguments for AOT shared library name on top
+        // of aotSharedLibraryNameArg.
+        String canonicalTestPath = testPath.toFile().getCanonicalPath();
+        String canonicalAotSharedLibraryNameArg = "--aot-shared-library-name=" + canonicalTestPath;
+        assertFalse(
+            "For flag type "
+                + flagType.toString()
+                + ": Args sent to FlutterJni.init incorrectly included canonical path "
+                + canonicalTestPath,
+            actualArgs.contains(canonicalAotSharedLibraryNameArg));
+
+        // Reset FlutterLoader and mockFlutterJNI to make more calls to
+        // FlutterLoader.ensureInitialized and mockFlutterJNI.init for testing.
+        flutterLoader.initialized = false;
+        clearInvocations(mockFlutterJNI);
+      }
     }
   }
 
@@ -593,31 +671,52 @@ public class FlutterLoaderTest {
 
     String invalidFilePath = "my\0file.so";
 
-    Bundle metadata = new Bundle();
-    metadata.putString("io.flutter.embedding.android.AOTSharedLibraryName", invalidFilePath);
-    ctx.getApplicationInfo().metaData = metadata;
+    for (TestFlagType flagType : TestFlagType.values()) {
+      String commandLineArg = "--aot-shared-library-name=" + invalidFilePath;
+      String[] paramArgs = null;
+      Bundle metadata = new Bundle();
 
-    flutterLoader.ensureInitializationComplete(ctx, null);
+      switch (flagType) {
+        case MANIFEST:
+          metadata.putString(
+              "io.flutter.embedding.engine.loader.FlutterLoader.aot-shared-library-name",
+              invalidFilePath);
+          break;
+        case COMMANDLINE:
+          metadata.putString("androidEngineShellArgs", commandLineArg);
+          break;
+        case RUNTIME:
+          // Set flag via ensureInitializationComplete parameter.
+          paramArgs = new String[] {commandLineArg};
+          break;
+      }
 
-    ArgumentCaptor<String[]> shellArgsCaptor = ArgumentCaptor.forClass(String[].class);
-    verify(mockFlutterJNI)
-        .init(
-            eq(ctx),
-            shellArgsCaptor.capture(),
-            anyString(),
-            anyString(),
-            anyString(),
-            anyLong(),
-            anyInt());
+      ctx.getApplicationInfo().metaData = metadata;
+      flutterLoader.ensureInitializationComplete(ctx, paramArgs);
 
-    List<String> actualArgs = Arrays.asList(shellArgsCaptor.getValue());
+      ArgumentCaptor<String[]> shellArgsCaptor = ArgumentCaptor.forClass(String[].class);
+      verify(mockFlutterJNI)
+          .init(
+              eq(ctx),
+              shellArgsCaptor.capture(),
+              anyString(),
+              anyString(),
+              anyString(),
+              anyLong(),
+              anyInt());
 
-    // This check works because the tests run in debug mode. If run in release (or JIT release)
-    // mode, actualArgs would contain the default arguments for AOT shared library name on top
-    // of aotSharedLibraryNameArg.
-    for (String arg : actualArgs) {
-      if (arg.startsWith("--aot-shared-library-name=")) {
-        fail();
+      List<String> actualArgs = Arrays.asList(shellArgsCaptor.getValue());
+
+      // This check works because the tests run in debug mode. If run in release (or JIT release)
+      // mode, actualArgs would contain the default arguments for AOT shared library name on top
+      // of aotSharedLibraryNameArg.
+      for (String arg : actualArgs) {
+        if (arg.startsWith("--aot-shared-library-name=")) {
+          fail(
+              "For flag type "
+                  + flagType.toString()
+                  + ": Args sent to FlutterJni.init incorrectly included invalid AOT shared library path");
+        }
       }
     }
   }
@@ -644,38 +743,60 @@ public class FlutterLoaderTest {
     when(flutterLoader.getFileFromPath(spySymlinkFile.getPath())).thenReturn(spySymlinkFile);
     doReturn(realSoFile.getCanonicalPath()).when(spySymlinkFile).getCanonicalPath();
 
-    Bundle metadata = new Bundle();
-    metadata.putString(
-        "io.flutter.embedding.android.AOTSharedLibraryName", spySymlinkFile.getPath());
-    ctx.getApplicationInfo().metaData = metadata;
-    flutterLoader.ensureInitializationComplete(ctx, null);
+    for (TestFlagType flagType : TestFlagType.values()) {
+      String path = spySymlinkFile.getPath();
+      String commandLineArg = "--aot-shared-library-name=" + path;
+      String[] paramArgs = null;
+      Bundle metadata = new Bundle();
 
-    ArgumentCaptor<String[]> shellArgsCaptor = ArgumentCaptor.forClass(String[].class);
-    verify(mockFlutterJNI)
-        .init(
-            eq(ctx),
-            shellArgsCaptor.capture(),
-            anyString(),
-            anyString(),
-            anyString(),
-            anyLong(),
-            anyInt());
+      switch (flagType) {
+        case MANIFEST:
+          metadata.putString(
+              "io.flutter.embedding.engine.loader.FlutterLoader.aot-shared-library-name", path);
+          break;
+        case COMMANDLINE:
+          metadata.putString("androidEngineShellArgs", commandLineArg);
+          break;
+        case RUNTIME:
+          // Set flag via ensureInitializationComplete parameter.
+          paramArgs = new String[] {commandLineArg};
+          break;
+      }
 
-    List<String> actualArgs = Arrays.asList(shellArgsCaptor.getValue());
+      ctx.getApplicationInfo().metaData = metadata;
+      flutterLoader.ensureInitializationComplete(ctx, paramArgs);
 
-    String canonicalSymlinkCanonicalizedPath = realSoFile.getCanonicalPath();
-    String aotSharedLibraryNameFlag = "--aot-shared-library-name=";
-    String symlinkAotSharedLibraryNameArg = aotSharedLibraryNameFlag + spySymlinkFile.getPath();
-    String canonicalAotSharedLibraryNameArg =
-        aotSharedLibraryNameFlag + canonicalSymlinkCanonicalizedPath;
-    assertFalse(
-        "Args sent to FlutterJni.init incorrectly included absolute symlink path: "
-            + spySymlinkFile.getAbsolutePath(),
-        actualArgs.contains(symlinkAotSharedLibraryNameArg));
-    assertTrue(
-        "Args sent to FlutterJni.init incorrectly did not include canonicalized path of symlink: "
-            + canonicalSymlinkCanonicalizedPath,
-        actualArgs.contains(canonicalAotSharedLibraryNameArg));
+      ArgumentCaptor<String[]> shellArgsCaptor = ArgumentCaptor.forClass(String[].class);
+      verify(mockFlutterJNI)
+          .init(
+              eq(ctx),
+              shellArgsCaptor.capture(),
+              anyString(),
+              anyString(),
+              anyString(),
+              anyLong(),
+              anyInt());
+
+      List<String> actualArgs = Arrays.asList(shellArgsCaptor.getValue());
+
+      String canonicalSymlinkCanonicalizedPath = realSoFile.getCanonicalPath();
+      String aotSharedLibraryNameFlag = "--aot-shared-library-name=";
+      String symlinkAotSharedLibraryNameArg = aotSharedLibraryNameFlag + spySymlinkFile.getPath();
+      String canonicalAotSharedLibraryNameArg =
+          aotSharedLibraryNameFlag + canonicalSymlinkCanonicalizedPath;
+      assertFalse(
+          "For flag type "
+              + flagType.toString()
+              + ": Args sent to FlutterJni.init incorrectly included absolute symlink path: "
+              + spySymlinkFile.getAbsolutePath(),
+          actualArgs.contains(symlinkAotSharedLibraryNameArg));
+      assertTrue(
+          "For flag type "
+              + flagType.toString()
+              + ": Args sent to FlutterJni.init incorrectly did not include canonicalized path of symlink: "
+              + canonicalSymlinkCanonicalizedPath,
+          actualArgs.contains(canonicalAotSharedLibraryNameArg));
+    }
 
     // Clean up created files.
     spySymlinkFile.delete();
@@ -702,54 +823,77 @@ public class FlutterLoaderTest {
     List<File> unsafeFiles = Arrays.asList(nonSoFile, fileJustOutsideInternalStorage);
     Files.deleteIfExists(spySymlinkFile.toPath());
 
-    Bundle metadata = new Bundle();
-    metadata.putString(
-        "io.flutter.embedding.android.AOTSharedLibraryName", spySymlinkFile.getAbsolutePath());
-    ctx.getApplicationInfo().metaData = metadata;
+    for (TestFlagType flagType : TestFlagType.values()) {
+      String path = spySymlinkFile.getAbsolutePath();
+      String commandLineArg = "--aot-shared-library-name=" + path;
+      String[] paramArgs = null;
+      Bundle metadata = new Bundle();
 
-    for (File unsafeFile : unsafeFiles) {
-      // Simulate a symlink since some filesystems do not support symlinks.
-      when(flutterLoader.getFileFromPath(spySymlinkFile.getPath())).thenReturn(spySymlinkFile);
-      doReturn(unsafeFile.getCanonicalPath()).when(spySymlinkFile).getCanonicalPath();
+      switch (flagType) {
+        case MANIFEST:
+          metadata.putString(
+              "io.flutter.embedding.engine.loader.FlutterLoader.aot-shared-library-name", path);
+          break;
+        case COMMANDLINE:
+          metadata.putString("androidEngineShellArgs", commandLineArg);
+          break;
+        case RUNTIME:
+          // Set flag via ensureInitializationComplete parameter.
+          paramArgs = new String[] {commandLineArg};
+          break;
+      }
 
-      flutterLoader.ensureInitializationComplete(ctx, null);
+      ctx.getApplicationInfo().metaData = metadata;
+      flutterLoader.ensureInitializationComplete(ctx, paramArgs);
 
-      ArgumentCaptor<String[]> shellArgsCaptor = ArgumentCaptor.forClass(String[].class);
-      verify(mockFlutterJNI)
-          .init(
-              eq(ctx),
-              shellArgsCaptor.capture(),
-              anyString(),
-              anyString(),
-              anyString(),
-              anyLong(),
-              anyInt());
+      for (File unsafeFile : unsafeFiles) {
+        // Simulate a symlink since some filesystems do not support symlinks.
+        when(flutterLoader.getFileFromPath(spySymlinkFile.getPath())).thenReturn(spySymlinkFile);
+        doReturn(unsafeFile.getCanonicalPath()).when(spySymlinkFile).getCanonicalPath();
 
-      List<String> actualArgs = Arrays.asList(shellArgsCaptor.getValue());
+        flutterLoader.ensureInitializationComplete(ctx, null);
 
-      String canonicalSymlinkCanonicalizedPath = unsafeFile.getCanonicalPath();
-      String aotSharedLibraryNameFlag = "--aot-shared-library-name=";
-      String symlinkAotSharedLibraryNameArg =
-          aotSharedLibraryNameFlag + spySymlinkFile.getAbsolutePath();
-      String canonicalAotSharedLibraryNameArg =
-          aotSharedLibraryNameFlag + canonicalSymlinkCanonicalizedPath;
-      assertFalse(
-          "Args sent to FlutterJni.init incorrectly included canonicalized path of symlink: "
-              + canonicalSymlinkCanonicalizedPath,
-          actualArgs.contains(canonicalAotSharedLibraryNameArg));
-      assertFalse(
-          "Args sent to FlutterJni.init incorrectly included absolute path of symlink: "
-              + spySymlinkFile.getAbsolutePath(),
-          actualArgs.contains(symlinkAotSharedLibraryNameArg));
+        ArgumentCaptor<String[]> shellArgsCaptor = ArgumentCaptor.forClass(String[].class);
+        verify(mockFlutterJNI)
+            .init(
+                eq(ctx),
+                shellArgsCaptor.capture(),
+                anyString(),
+                anyString(),
+                anyString(),
+                anyLong(),
+                anyInt());
 
-      // Clean up created files.
-      spySymlinkFile.delete();
-      unsafeFile.delete();
+        List<String> actualArgs = Arrays.asList(shellArgsCaptor.getValue());
 
-      // Reset FlutterLoader and mockFlutterJNI to make more calls to
-      // FlutterLoader.ensureInitialized and mockFlutterJNI.init for testing.
-      flutterLoader.initialized = false;
-      clearInvocations(mockFlutterJNI);
+        String canonicalSymlinkCanonicalizedPath = unsafeFile.getCanonicalPath();
+        String aotSharedLibraryNameFlag = "--aot-shared-library-name=";
+        String symlinkAotSharedLibraryNameArg =
+            aotSharedLibraryNameFlag + spySymlinkFile.getAbsolutePath();
+        String canonicalAotSharedLibraryNameArg =
+            aotSharedLibraryNameFlag + canonicalSymlinkCanonicalizedPath;
+        assertFalse(
+            "For flag type "
+                + flagType.toString()
+                + ": Args sent to FlutterJni.init incorrectly included canonicalized path of symlink: "
+                + canonicalSymlinkCanonicalizedPath,
+            actualArgs.contains(canonicalAotSharedLibraryNameArg));
+        assertFalse(
+            "For flag type "
+                + flagType.toString()
+                + ": Args sent to FlutterJni.init incorrectly included absolute path of symlink: "
+                + spySymlinkFile.getAbsolutePath(),
+            actualArgs.contains(symlinkAotSharedLibraryNameArg));
+
+        // Clean up created files.
+        spySymlinkFile.delete();
+        unsafeFile.delete();
+
+        // Reset FlutterLoader and mockFlutterJNI to make more calls to
+        // FlutterLoader.ensureInitialized and mockFlutterJNI.init for testing.
+        flutterLoader.initialized = false;
+        clearInvocations(mockFlutterJNI);
+      }
     }
   }
 
@@ -1021,11 +1165,23 @@ public class FlutterLoaderTest {
 
   @Test
   public void itSetsTraceToFileFromMetadata() {
-    String expectedTraceToFilePath = "/path/to/trace/file";
-    testFlagFromMetadataPresent(
-        "io.flutter.embedding.android.TraceToFile",
-        expectedTraceToFilePath,
-        "--trace-to-file=" + expectedTraceToFilePath);
+    String[] pathsToTest =
+        new String[] {
+          "path/to/trace/file",
+          "/path/to/a trace/file",
+          "\"path/to/a file\"",
+          "\"a b c\"",
+          "path/to-a/file",
+          "path_to/a/file",
+          "path/to/a/hidden/.file",
+        };
+
+    for (String expectedTraceToFilePath : pathsToTest) {
+      testFlagFromMetadataPresent(
+          "io.flutter.embedding.android.TraceToFile",
+          expectedTraceToFilePath,
+          "--trace-to-file=" + expectedTraceToFilePath);
+    }
   }
 
   @Test
@@ -1127,13 +1283,13 @@ public class FlutterLoaderTest {
 
   @Test
   public void itDoesNotSetTestFlagFromMetadata() {
-    testFlagFromMetadataNotPresent("io.flutter.embedding.android.TestFlag", null, "--test-flag");
+    testFlagFromMetadataNotPresent("io.flutter.embedding.android.TestFlag", true, "--test-flag");
   }
 
   @Test
   public void itDoesNotSetFlagDisallowedinReleaseMode() {
     testFlagFromMetadataNotPresentInReleaseMode(
-        "io.flutter.embedding.android.TraceSkia", null, "--test-flag");
+        "io.flutter.embedding.android.TraceSkia", true, "--test-flag");
   }
 
   @Test
@@ -1167,7 +1323,7 @@ public class FlutterLoaderTest {
   }
 
   @Test
-  public void itDoesSetRecognizedCommandLineArgument() {
+  public void itDoesSetRecognizedIntentExtra() {
     FlutterJNI mockFlutterJNI = mock(FlutterJNI.class);
     FlutterLoader flutterLoader = new FlutterLoader(mockFlutterJNI);
     Bundle metadata = new Bundle();
@@ -1200,9 +1356,41 @@ public class FlutterLoaderTest {
   }
 
   @Test
-  public void ifFlagSetViaManifestAndCommandLineThenCommandLineTakesPrecedence() {
+  public void itDoesNotSetCommandLineFlagWhenDisallowedInReleaseMode() {
+    FlutterJNI mockFlutterJNI = mock(FlutterJNI.class);
+    FlutterLoader flutterLoader = new FlutterLoader(mockFlutterJNI);
+    String disallowedArg = "--enable-opengl-gpu-tracing";
+
+    // Inject engine shell args into the manifest.
+    Bundle metadata = new Bundle();
+    metadata.putString("androidEngineShellArgs", disallowedArg);
+
+    ctx.getApplicationInfo().metaData = metadata;
+
+    FlutterLoader.Settings settings = new FlutterLoader.Settings();
+    assertFalse(flutterLoader.initialized());
+    flutterLoader.startInitialization(ctx, settings);
+    flutterLoader.ensureInitializationComplete(ctx, null, true);
+    shadowOf(getMainLooper()).idle();
+
+    ArgumentCaptor<String[]> shellArgsCaptor = ArgumentCaptor.forClass(String[].class);
+    verify(mockFlutterJNI, times(1))
+        .init(
+            eq(ctx),
+            shellArgsCaptor.capture(),
+            anyString(),
+            anyString(),
+            anyString(),
+            anyLong(),
+            anyInt());
+    List<String> arguments = Arrays.asList(shellArgsCaptor.getValue());
+    assertFalse(arguments.contains(disallowedArg));
+  }
+
+  @Test
+  public void ifFlagSetViaManifestAndIntentExtraThenIntentExtraTakesPrecedence() {
     String expectedImpellerArgFromMetadata = "--enable-impeller=true";
-    String expectedImpellerArgFromCommandLine = "--enable-impeller=false";
+    String expectedImpellerArgFromIntentExtra = "--enable-impeller=false";
 
     FlutterJNI mockFlutterJNI = mock(FlutterJNI.class);
     FlutterLoader flutterLoader = new FlutterLoader(mockFlutterJNI);
@@ -1216,7 +1404,7 @@ public class FlutterLoaderTest {
     assertFalse(flutterLoader.initialized());
     flutterLoader.startInitialization(ctx, settings);
     flutterLoader.ensureInitializationComplete(
-        ctx, new String[] {expectedImpellerArgFromCommandLine});
+        ctx, new String[] {expectedImpellerArgFromIntentExtra});
     shadowOf(getMainLooper()).idle();
 
     ArgumentCaptor<String[]> shellArgsCaptor = ArgumentCaptor.forClass(String[].class);
@@ -1231,10 +1419,155 @@ public class FlutterLoaderTest {
             anyInt());
     List<String> arguments = Arrays.asList(shellArgsCaptor.getValue());
 
-    // Verify that the command line argument takes precedence over the manifest metadata.
+    // Verify that the Intent extras argument takes precedence over the manifest metadata.
+    assertTrue(
+        arguments.indexOf(expectedImpellerArgFromMetadata)
+            < arguments.indexOf(expectedImpellerArgFromIntentExtra));
+  }
+
+  @Test
+  public void ifFlagSetViaManifestAndCommandLineThenCommandLineTakesPrecedence() {
+    String expectedImpellerArgFromMetadata = "--enable-impeller=true";
+    String expectedImpellerArgFromCommandLine = "--enable-impeller=false";
+
+    FlutterJNI mockFlutterJNI = mock(FlutterJNI.class);
+    FlutterLoader flutterLoader = new FlutterLoader(mockFlutterJNI);
+    Bundle metadata = new Bundle();
+
+    // Place metadata key and value into the metadata bundle used to mock the manifest.
+    metadata.putBoolean("io.flutter.embedding.android.EnableImpeller", true);
+
+    // Mock metdata put into the manifest by the Flutter tool when command line flag specified.
+    metadata.putString(
+        "androidEngineShellArgs", "[\"" + expectedImpellerArgFromCommandLine + "\"]");
+
+    ctx.getApplicationInfo().metaData = metadata;
+
+    FlutterLoader.Settings settings = new FlutterLoader.Settings();
+    assertFalse(flutterLoader.initialized());
+    flutterLoader.startInitialization(ctx, settings);
+    flutterLoader.ensureInitializationComplete(ctx, null);
+    shadowOf(getMainLooper()).idle();
+
+    ArgumentCaptor<String[]> shellArgsCaptor = ArgumentCaptor.forClass(String[].class);
+    verify(mockFlutterJNI, times(1))
+        .init(
+            eq(ctx),
+            shellArgsCaptor.capture(),
+            anyString(),
+            anyString(),
+            anyString(),
+            anyLong(),
+            anyInt());
+    List<String> arguments = Arrays.asList(shellArgsCaptor.getValue());
+
+    // Verify that the Intent extras argument takes precedence over the manifest metadata.
     assertTrue(
         arguments.indexOf(expectedImpellerArgFromMetadata)
             < arguments.indexOf(expectedImpellerArgFromCommandLine));
+  }
+
+  @Test
+  public void ifFlagSetViaCommandLineAndIntentExtraThenIntentExtraTakesPrecedence() {
+    String expectedImpellerArgFromCommandLine = "--enable-impeller=true";
+    String expectedImpellerArgFromIntentExtra = "--enable-impeller=false";
+
+    FlutterJNI mockFlutterJNI = mock(FlutterJNI.class);
+    FlutterLoader flutterLoader = new FlutterLoader(mockFlutterJNI);
+    Bundle metadata = new Bundle();
+
+    // Mock metdata put into the manifest by the Flutter tool when command line flag specified.
+    metadata.putString(
+        "androidEngineShellArgs", "[\"" + expectedImpellerArgFromCommandLine + "\"]");
+
+    ctx.getApplicationInfo().metaData = metadata;
+
+    FlutterLoader.Settings settings = new FlutterLoader.Settings();
+    assertFalse(flutterLoader.initialized());
+    flutterLoader.startInitialization(ctx, settings);
+    flutterLoader.ensureInitializationComplete(
+        ctx, new String[] {expectedImpellerArgFromIntentExtra});
+    shadowOf(getMainLooper()).idle();
+
+    ArgumentCaptor<String[]> shellArgsCaptor = ArgumentCaptor.forClass(String[].class);
+    verify(mockFlutterJNI, times(1))
+        .init(
+            eq(ctx),
+            shellArgsCaptor.capture(),
+            anyString(),
+            anyString(),
+            anyString(),
+            anyLong(),
+            anyInt());
+    List<String> arguments = Arrays.asList(shellArgsCaptor.getValue());
+
+    // Verify that the Intent extras argument takes precedence over the manifest metadata.
+    assertTrue(
+        arguments.indexOf(expectedImpellerArgFromCommandLine)
+            < arguments.indexOf(expectedImpellerArgFromIntentExtra));
+  }
+
+  @Test
+  public void ifAOTSharedLibraryNameSetViaManifestAndIntentExtraThenIntentExtraTakesPrecedence()
+      throws IOException {
+    FlutterJNI mockFlutterJNI = mock(FlutterJNI.class);
+    FlutterLoader flutterLoader = spy(new FlutterLoader(mockFlutterJNI));
+    File internalStorageDir = ctx.getFilesDir();
+    Path internalStorageDirAsPathObj = internalStorageDir.toPath();
+
+    ctx.getApplicationInfo().nativeLibraryDir =
+        Paths.get("some", "path", "doesnt", "matter").toString();
+    assertFalse(flutterLoader.initialized());
+    flutterLoader.startInitialization(ctx);
+
+    // Test paths for library living within internal storage.
+    Path pathWithDirectInternalStoragePath1 = internalStorageDirAsPathObj.resolve("library1.so");
+    Path pathWithDirectInternalStoragePath2 = internalStorageDirAsPathObj.resolve("library2.so");
+
+    String expectedAotSharedLibraryNameFromMetadata =
+        "--aot-shared-library-name="
+            + pathWithDirectInternalStoragePath1.toFile().getCanonicalPath();
+    String expectedAotSharedLibraryNameFromIntentExtra =
+        "--aot-shared-library-name="
+            + pathWithDirectInternalStoragePath2.toFile().getCanonicalPath();
+
+    Bundle metadata = new Bundle();
+
+    // Place metadata key and value into the metadata bundle used to mock the manifest.
+    metadata.putString(
+        "io.flutter.embedding.android.AOTSharedLibraryName",
+        pathWithDirectInternalStoragePath1.toFile().getCanonicalPath());
+    ctx.getApplicationInfo().metaData = metadata;
+
+    FlutterLoader.Settings settings = new FlutterLoader.Settings();
+    assertFalse(flutterLoader.initialized());
+    flutterLoader.startInitialization(ctx, settings);
+    flutterLoader.ensureInitializationComplete(
+        ctx,
+        new String[] {expectedAotSharedLibraryNameFromIntentExtra, "--enable-opengl-gpu-tracing"});
+    shadowOf(getMainLooper()).idle();
+
+    ArgumentCaptor<String[]> shellArgsCaptor = ArgumentCaptor.forClass(String[].class);
+    verify(mockFlutterJNI, times(1))
+        .init(
+            eq(ctx),
+            shellArgsCaptor.capture(),
+            anyString(),
+            anyString(),
+            anyString(),
+            anyLong(),
+            anyInt());
+    List<String> arguments = Arrays.asList(shellArgsCaptor.getValue());
+
+    // Verify that the Intent extras takes precedence over the manifest metadata.
+    assertTrue(
+        arguments.indexOf(expectedAotSharedLibraryNameFromIntentExtra)
+            < arguments.indexOf(expectedAotSharedLibraryNameFromMetadata));
+
+    // Verify other Intent extras are still passed through.
+    assertTrue(
+        "Expected argument --enable-opengl-gpu-tracing was not found in the arguments passed to FlutterJNI.init",
+        arguments.contains("--enable-opengl-gpu-tracing"));
   }
 
   @Test
@@ -1267,14 +1600,16 @@ public class FlutterLoaderTest {
     metadata.putString(
         "io.flutter.embedding.android.AOTSharedLibraryName",
         pathWithDirectInternalStoragePath1.toFile().getCanonicalPath());
+
+    // Mock metdata put into the manifest by the Flutter tool when command line flag specified.
+    metadata.putString("androidEngineShellArgs", expectedAotSharedLibraryNameFromCommandLine);
+
     ctx.getApplicationInfo().metaData = metadata;
 
     FlutterLoader.Settings settings = new FlutterLoader.Settings();
     assertFalse(flutterLoader.initialized());
     flutterLoader.startInitialization(ctx, settings);
-    flutterLoader.ensureInitializationComplete(
-        ctx,
-        new String[] {expectedAotSharedLibraryNameFromCommandLine, "--enable-opengl-gpu-tracing"});
+    flutterLoader.ensureInitializationComplete(ctx, new String[] {"--enable-opengl-gpu-tracing"});
     shadowOf(getMainLooper()).idle();
 
     ArgumentCaptor<String[]> shellArgsCaptor = ArgumentCaptor.forClass(String[].class);
@@ -1289,19 +1624,19 @@ public class FlutterLoaderTest {
             anyInt());
     List<String> arguments = Arrays.asList(shellArgsCaptor.getValue());
 
-    // Verify that the command line argument takes precedence over the manifest metadata.
+    // Verify that the Intent extras takes precedence over the manifest metadata.
     assertTrue(
         arguments.indexOf(expectedAotSharedLibraryNameFromCommandLine)
             < arguments.indexOf(expectedAotSharedLibraryNameFromMetadata));
 
-    // Verify other command line arguments are still passed through.
+    // Verify other Intent extras are still passed through.
     assertTrue(
         "Expected argument --enable-opengl-gpu-tracing was not found in the arguments passed to FlutterJNI.init",
         arguments.contains("--enable-opengl-gpu-tracing"));
   }
 
   @Test
-  public void itDoesNotSetCommandLineFlagWhenDisallowedInReleaseMode() {
+  public void itDoesNotSetIntentExtraFlagWhenDisallowedInReleaseMode() {
     FlutterJNI mockFlutterJNI = mock(FlutterJNI.class);
     FlutterLoader flutterLoader = new FlutterLoader(mockFlutterJNI);
     String expectedArg = "--verbose-logging";
@@ -1331,6 +1666,34 @@ public class FlutterLoaderTest {
         arguments.contains(expectedArg));
   }
 
+  @Test
+  public void itSetsSingleCommandLineFlagFromManifestMetadata() {
+    testFlagFromMetadataPresent(
+        "androidEngineShellArgs", "[\"--enable-impeller=true\"]", "--enable-impeller=true");
+  }
+
+  @Test
+  public void itSetsMultipleCommandLineFlagsFromManifestMetadata() {
+    testMultipleFlagsFromMetadata(
+        Map.of(
+            "androidEngineShellArgs",
+            "[\"--enable-impeller=true\",\"--enable-vulkan-validation\"]"),
+        new String[] {"--enable-impeller=true", "--enable-vulkan-validation"},
+        true,
+        false);
+  }
+
+  @Test
+  public void itSetsMultipleCommandLineFlagsWithSpecialCharactersFromManifestMetadata() {
+    testMultipleFlagsFromMetadata(
+        Map.of(
+            "androidEngineShellArgs",
+            "[\"--trace-to-file=\\\"path/to/a file\\\"\",\"--enable-impeller=true\"]"),
+        new String[] {"--trace-to-file=\"path/to/a file\"", "--enable-impeller=true"},
+        true,
+        false);
+  }
+
   private void testFlagFromMetadataPresentInReleaseMode(
       String metadataKey, Object metadataValue, String expectedArg) {
     testFlagFromMetadata(metadataKey, metadataValue, expectedArg, true, true);
@@ -1358,22 +1721,42 @@ public class FlutterLoaderTest {
       String expectedArg,
       boolean shouldBeSet,
       boolean isReleaseMode) {
+    HashMap<String, Object> metadataToInsert =
+        new HashMap<>() {
+          {
+            put(metadataKey, metadataValue);
+          }
+        };
+    testMultipleFlagsFromMetadata(
+        metadataToInsert, new String[] {expectedArg}, shouldBeSet, isReleaseMode);
+  }
+
+  private void testMultipleFlagsFromMetadata(
+      Map<String, Object> metadataToInsert,
+      String[] expectedArgs,
+      boolean shouldBeSet,
+      boolean isReleaseMode) {
     FlutterJNI mockFlutterJNI = mock(FlutterJNI.class);
     FlutterLoader flutterLoader = new FlutterLoader(mockFlutterJNI);
     Bundle metadata = new Bundle();
 
     // Place metadata key and value into the metadata bundle used to mock the manifest.
-    if (metadataValue == null) {
-      metadata.putString(metadataKey, null);
-    } else if (metadataValue instanceof Boolean) {
-      metadata.putBoolean(metadataKey, (Boolean) metadataValue);
-    } else if (metadataValue instanceof Integer) {
-      metadata.putInt(metadataKey, (Integer) metadataValue);
-    } else if (metadataValue instanceof String) {
-      metadata.putString(metadataKey, (String) metadataValue);
-    } else {
-      throw new IllegalArgumentException(
-          "Unsupported metadataValue type: " + metadataValue.getClass());
+    for (Map.Entry<String, Object> entry : metadataToInsert.entrySet()) {
+      String metadataKey = entry.getKey();
+      Object metadataValue = entry.getValue();
+
+      if (metadataValue == null) {
+        metadata.putString(metadataKey, null);
+      } else if (metadataValue instanceof Boolean) {
+        metadata.putBoolean(metadataKey, (Boolean) metadataValue);
+      } else if (metadataValue instanceof Integer) {
+        metadata.putInt(metadataKey, (Integer) metadataValue);
+      } else if (metadataValue instanceof String) {
+        metadata.putString(metadataKey, (String) metadataValue);
+      } else {
+        throw new IllegalArgumentException(
+            "Unsupported metadataValue type: " + metadataValue.getClass());
+      }
     }
 
     ctx.getApplicationInfo().metaData = metadata;
@@ -1396,18 +1779,26 @@ public class FlutterLoaderTest {
             anyInt());
     List<String> arguments = Arrays.asList(shellArgsCaptor.getValue());
 
-    if (shouldBeSet) {
-      assertTrue(
-          "Expected argument '"
-              + expectedArg
-              + "' was not found in the arguments passed to FlutterJNI.init",
-          arguments.contains(expectedArg));
-    } else {
-      assertFalse(
-          "Unexpected argument '"
-              + expectedArg
-              + "' was found in the arguments passed to FlutterJNI.init",
-          arguments.contains(expectedArg));
+    for (String expectedArg : expectedArgs) {
+      if (shouldBeSet) {
+        assertTrue(
+            "Expected argument '"
+                + expectedArg
+                + "' was not found in the arguments passed to FlutterJNI.init",
+            arguments.contains(expectedArg));
+      } else {
+        assertFalse(
+            "Unexpected argument '"
+                + expectedArg
+                + "' was found in the arguments passed to FlutterJNI.init",
+            arguments.contains(expectedArg));
+      }
     }
   }
+}
+
+enum TestFlagType {
+  MANIFEST,
+  COMMANDLINE,
+  RUNTIME,
 }

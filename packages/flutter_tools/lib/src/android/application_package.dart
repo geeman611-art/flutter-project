@@ -16,6 +16,7 @@ import '../base/logger.dart';
 import '../base/process.dart';
 import '../base/user_messages.dart';
 import '../build_info.dart';
+import '../convert.dart';
 import '../project.dart';
 import 'android_sdk.dart';
 import 'gradle.dart';
@@ -27,10 +28,22 @@ class AndroidApk extends ApplicationPackage implements PrebuiltApplicationPackag
     required this.applicationPackage,
     required this.versionCode,
     required this.launchActivity,
+    this.engineShellArgs,
   });
 
   static String get _aaptNotFound =>
       'Could not locate aapt. Please ensure you have the Android buildtools installed.';
+
+  /// The application manifest metadata key for engine flags specified via the command line
+  /// that are injected into the application merged manifest to be loaded in the
+  /// Flutter Android embedding.
+  ///
+  /// The key is set in the custom Gradle task found in
+  /// packages/flutter_tools/gradle/src/main/kotlin/tasks/GenerateEngineFlagsManifestTask.kt.
+  /// The command line flags set there are later loaded by the Flutter Android embedding in
+  /// engine/src/flutter/shell/platform/android/io/flutter/embedding/engine/loader/FlutterLoader.java.
+  static const String androidEngineShellArgumentsFromCommandLineManifestKey =
+      'androidEngineShellArgs';
 
   /// Creates a new AndroidApk from an existing APK.
   ///
@@ -42,6 +55,7 @@ class AndroidApk extends ApplicationPackage implements PrebuiltApplicationPackag
     required UserMessages userMessages,
     required Logger logger,
     required ProcessUtils processUtils,
+    required BuildMode? buildMode,
   }) {
     final String? aaptPath = androidSdk.latestVersion?.aaptPath;
     if (aaptPath == null || !processManager.canRun(aaptPath)) {
@@ -79,11 +93,24 @@ class AndroidApk extends ApplicationPackage implements PrebuiltApplicationPackag
       return null;
     }
 
+    Set<String>? androidEngineShellArgs;
+    final String? androidEngineShellArgsFromManifest = data.androidEngineShellArgs;
+    if (androidEngineShellArgsFromManifest != null && androidEngineShellArgsFromManifest.isNotEmpty) {
+      try {
+        final decoded =
+            jsonDecode(androidEngineShellArgsFromManifest.replaceAll(r'\"', '"')) as List<dynamic>;
+        androidEngineShellArgs = decoded.cast<String>().toSet();
+      } on FormatException catch (e) {
+        logger.printError('Error parsing shell arguments from manifest: $e');
+      }
+    }
+
     return AndroidApk(
       id: packageName,
       applicationPackage: apk,
       versionCode: data.versionCode == null ? null : int.tryParse(data.versionCode!),
       launchActivity: '${data.packageName}/${data.launchableActivityName}',
+      engineShellArgs: androidEngineShellArgs,
     );
   }
 
@@ -95,6 +122,9 @@ class AndroidApk extends ApplicationPackage implements PrebuiltApplicationPackag
 
   /// The version code of the APK.
   final int? versionCode;
+
+  /// The engine shell arguments, read from the generated engine shell arguments manifest in the APK.
+  final Set<String>? engineShellArgs;
 
   /// Creates a new AndroidApk based on the information in the Android manifest.
   static Future<AndroidApk?> fromAndroidProject(
@@ -135,6 +165,7 @@ class AndroidApk extends ApplicationPackage implements PrebuiltApplicationPackag
           logger: logger,
           userMessages: userMessages,
           processUtils: processUtils,
+          buildMode: buildInfo?.mode,
         );
       }
       // The .apk hasn't been built yet, so we work with what we have. The run
@@ -290,9 +321,13 @@ class _Attribute extends _Entry {
   factory _Attribute.fromLine(String line, _Element parent) {
     //     A: android:label(0x01010001)="hello_world" (Raw: "hello_world")
     const attributePrefix = 'A: ';
-    final List<String> keyVal = line
-        .substring(line.indexOf(attributePrefix) + attributePrefix.length)
-        .split('=');
+    final int valueStart = line.indexOf(attributePrefix) + attributePrefix.length;
+    final int splitIndex = line.indexOf('=');
+    final List<String> keyVal = [
+      line.substring(valueStart, splitIndex),
+      line.substring(splitIndex + 1).trim(),
+    ];
+
     return _Attribute._(keyVal[0], keyVal[1], parent, line.length - line.trimLeft().length);
   }
 
@@ -355,6 +390,28 @@ class ApkManifestData {
     final _Element? application = manifest.firstElement('application');
     if (application == null) {
       return null;
+    }
+
+    final Iterable<_Element?> applicationMetadataElements = application.allElements('meta-data');
+
+    String? androidEngineShellArgs;
+    for (final metadata in applicationMetadataElements) {
+      final String? elementAttributeValue = metadata!.firstAttribute('android:name')?.value;
+      if (elementAttributeValue != null &&
+          elementAttributeValue.startsWith(
+            '"${AndroidApk.androidEngineShellArgumentsFromCommandLineManifestKey}"',
+          )) {
+        final _Attribute? androidEngineShellArgsList = metadata.firstAttribute('android:value');
+        if (androidEngineShellArgsList != null && androidEngineShellArgsList.value != null) {
+          //  A: android:value(0x01010024)="--enable-dart-profiling;--enable-checked-mode" (Raw: "--enable-dart-profiling;--enable-checked-mode")
+          final String androidEngineShellArgsListValue = androidEngineShellArgsList.value!
+              .substring(1, androidEngineShellArgsList.value?.indexOf('" '));
+          androidEngineShellArgs = androidEngineShellArgsListValue.isEmpty
+              ? null
+              : androidEngineShellArgsListValue;
+        }
+        break;
+      }
     }
 
     final Iterable<_Element> activities = application.allElements('activity');
@@ -435,6 +492,10 @@ class ApkManifestData {
       if (packageName != null) 'package': <String, String>{'name': packageName},
       'version-code': <String, String>{'name': versionCode.toString()},
       if (activityName != null) 'launchable-activity': <String, String>{'name': activityName},
+      if (androidEngineShellArgs != null)
+        AndroidApk.androidEngineShellArgumentsFromCommandLineManifestKey: <String, String>{
+          'name': androidEngineShellArgs,
+        },
     };
 
     return ApkManifestData._(map);
@@ -453,6 +514,11 @@ class ApkManifestData {
   String? get launchableActivityName {
     return _data['launchable-activity'] == null ? null : _data['launchable-activity']?['name'];
   }
+
+  String? get androidEngineShellArgs =>
+      _data[AndroidApk.androidEngineShellArgumentsFromCommandLineManifestKey] == null
+      ? null
+      : _data[AndroidApk.androidEngineShellArgumentsFromCommandLineManifestKey]?['name'];
 
   @override
   String toString() => _data.toString();
