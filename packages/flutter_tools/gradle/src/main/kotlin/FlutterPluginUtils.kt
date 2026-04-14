@@ -14,12 +14,15 @@ import com.android.build.gradle.tasks.ProcessAndroidResources
 import com.android.builder.model.BuildType
 import com.flutter.gradle.plugins.PluginHandler
 import com.flutter.gradle.tasks.DeepLinkJsonFromManifestTask
+import com.flutter.gradle.tasks.PrintKgpTask
+import com.flutter.gradle.tasks.PrintTaskDeferred
 import groovy.lang.Closure
 import org.gradle.api.GradleException
 import org.gradle.api.Project
 import org.gradle.api.Task
 import org.gradle.api.UnknownTaskException
 import org.gradle.api.logging.Logger
+import org.gradle.kotlin.dsl.register
 import java.io.File
 import java.nio.charset.StandardCharsets
 import java.util.Properties
@@ -927,12 +930,11 @@ object FlutterPluginUtils {
     @JvmStatic
     @JvmName("addTaskForJavaVersion")
     internal fun addTaskForJavaVersion(project: Project) {
-        project.tasks.register("javaVersion") {
+        project.tasks.register<PrintTaskDeferred<Unit>>("javaVersion") {
             description = "Print the current java version used by gradle. see: " +
                 "https://docs.gradle.org/current/javadoc/org/gradle/api/JavaVersion.html"
-            doLast {
-                println(VersionFetcher.getJavaVersion())
-            }
+            closureInput = Unit
+            messageClosure = { VersionFetcher.getJavaVersion().toString() }
         }
     }
 
@@ -946,12 +948,7 @@ object FlutterPluginUtils {
     @JvmStatic
     @JvmName("addTaskForKGPVersion")
     internal fun addTaskForKGPVersion(project: Project) {
-        project.tasks.register("kgpVersion") {
-            description = "Print the current kgp version used by the project."
-            doLast {
-                println("KGP Version: " + VersionFetcher.getKGPVersion(project).toString())
-            }
-        }
+        project.tasks.register<PrintKgpTask>("kgpVersion")
     }
 
     // Add a task that can be called on Flutter projects that prints the available build variants
@@ -968,18 +965,22 @@ object FlutterPluginUtils {
     @JvmName("addTaskForPrintBuildVariants")
     internal fun addTaskForPrintBuildVariants(project: Project) {
         val androidComponents = project.extensions.getByType(AndroidComponentsExtension::class.java)
-        val variantNames = project.objects.listProperty(String::class.java)
+        val variantsList = project.objects.listProperty(String::class.java)
 
+        // Collect variant names during configuration phase to avoid lifecycle violations
         androidComponents.onVariants { variant ->
-            variantNames.add(variant.name)
+            variantsList.add(variant.name)
         }
 
-        project.tasks.register("printBuildVariants") {
+        project.tasks.register<PrintTaskDeferred<org.gradle.api.provider.ListProperty<String>>>("printBuildVariants") {
             description = "Prints out all build variants for this Android project"
-            doLast {
-                variantNames.get().forEach { name ->
-                    println("BuildVariant: $name")
+            closureInput = variantsList
+            messageClosure = { listProp ->
+                val messageBuilder = StringBuilder()
+                listProp.get().forEach { name ->
+                    messageBuilder.append("BuildVariant: $name\n")
                 }
+                messageBuilder.toString()
             }
         }
     }

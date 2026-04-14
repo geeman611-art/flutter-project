@@ -16,6 +16,8 @@ import com.flutter.gradle.FlutterPluginUtils.BUILT_IN_KOTLIN_DOCS_FOR_PLUGINS
 import com.flutter.gradle.FlutterPluginUtils.BUILT_IN_KOTLIN_DOCS_TO_REPORT_UNMIGRATED_PLUGINS
 import com.flutter.gradle.FlutterPluginUtils.detectApplyingKotlinGradlePlugin
 import com.flutter.gradle.plugins.PluginHandler
+import com.flutter.gradle.tasks.PrintKgpTask
+import com.flutter.gradle.tasks.PrintTaskDeferred
 import io.mockk.called
 import io.mockk.every
 import io.mockk.mockk
@@ -32,8 +34,8 @@ import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.invocation.Gradle
 import org.gradle.api.logging.Logger
 import org.gradle.api.plugins.PluginManager
-import org.gradle.internal.impldep.junit.framework.TestCase.assertFalse
-import org.gradle.internal.impldep.junit.framework.TestCase.assertTrue
+import org.gradle.api.tasks.TaskContainer
+import org.gradle.api.tasks.TaskProvider
 import org.jetbrains.kotlin.gradle.plugin.extraProperties
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.assertThrows
@@ -46,6 +48,7 @@ import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class FlutterPluginUtilsTest {
     companion object {
@@ -1927,21 +1930,24 @@ class FlutterPluginUtilsTest {
         }
     }
 
-    // addTaskForJavaVersion
     @Test
     fun `addTaskForJavaVersion adds task for Java version`() {
         val project = mockk<Project>()
-        every { project.tasks.register(any(), any<Action<Task>>()) } returns mockk()
-        val captureSlot = slot<Action<Task>>()
-        FlutterPluginUtils.addTaskForJavaVersion(project)
-        verify { project.tasks.register("javaVersion", capture(captureSlot)) }
+        val taskContainer = mockk<TaskContainer>()
+        every { project.tasks } returns taskContainer
+        val mockTaskProvider = mockk<TaskProvider<PrintTaskDeferred<Unit>>>()
+        val mockPrintTask = mockk<PrintTaskDeferred<Unit>>(relaxed = true)
+        val captureSlot = slot<Action<PrintTaskDeferred<Unit>>>()
 
-        val mockTask = mockk<Task>()
-        every { mockTask.description = any() } returns Unit
-        every { mockTask.doLast(any<Action<Task>>()) } returns mockk()
-        captureSlot.captured.execute(mockTask)
+        every {
+            project.tasks.register("javaVersion", any<Class<PrintTaskDeferred<Unit>>>(), capture(captureSlot))
+        } returns mockTaskProvider
+
+        FlutterPluginUtils.addTaskForJavaVersion(project)
+        captureSlot.captured.execute(mockPrintTask)
+
         verify {
-            mockTask.description = "Print the current java version used by gradle. see: " +
+            mockPrintTask.description = "Print the current java version used by gradle. see: " +
                 "https://docs.gradle.org/current/javadoc/org/gradle/api/JavaVersion.html"
         }
     }
@@ -1950,17 +1956,15 @@ class FlutterPluginUtilsTest {
     @Test
     fun `addTaskForKGPVersion adds task for KGP version`() {
         val project = mockk<Project>()
-        every { project.tasks.register(any(), any<Action<Task>>()) } returns mockk()
-        val captureSlot = slot<Action<Task>>()
-        FlutterPluginUtils.addTaskForKGPVersion(project)
-        verify { project.tasks.register("kgpVersion", capture(captureSlot)) }
 
-        val mockTask = mockk<Task>()
-        every { mockTask.description = any() } returns Unit
-        every { mockTask.doLast(any<Action<Task>>()) } returns mockk()
-        captureSlot.captured.execute(mockTask)
+        every {
+            project.tasks.register(eq("kgpVersion"), PrintKgpTask::class.java)
+        } returns mockk()
+
+        FlutterPluginUtils.addTaskForKGPVersion(project)
+
         verify {
-            mockTask.description = "Print the current kgp version used by the project."
+            project.tasks.register(eq("kgpVersion"), PrintKgpTask::class.java)
         }
     }
 
@@ -1968,24 +1972,32 @@ class FlutterPluginUtilsTest {
     @Test
     fun `addTaskForPrintBuildVariants adds task for printing build variants`() {
         val project = mockk<Project>()
+        val taskContainer = mockk<TaskContainer>()
         val androidComponents = mockk<AndroidComponentsExtension<*, *, *>>(relaxed = true)
         val listProperty = mockk<org.gradle.api.provider.ListProperty<String>>()
+
+        every { project.tasks } returns taskContainer
+        every { project.extensions } returns mockk()
         every { project.extensions.getByType(AndroidComponentsExtension::class.java) } returns androidComponents
         every { project.objects.listProperty(String::class.java) } returns listProperty
-        every { project.tasks.register(any(), any<Action<Task>>()) } returns mockk()
-        val captureSlot = slot<Action<Task>>()
+
+        val mockTaskProvider = mockk<TaskProvider<PrintTaskDeferred<org.gradle.api.provider.ListProperty<String>>>>()
+        val mockPrintTask = mockk<PrintTaskDeferred<org.gradle.api.provider.ListProperty<String>>>(relaxed = true)
+        val captureSlot = slot<Action<PrintTaskDeferred<org.gradle.api.provider.ListProperty<String>>>>()
+
+        every {
+            project.tasks.register(
+                "printBuildVariants",
+                any<Class<PrintTaskDeferred<org.gradle.api.provider.ListProperty<String>>>>(),
+                capture(captureSlot)
+            )
+        } returns mockTaskProvider
 
         FlutterPluginUtils.addTaskForPrintBuildVariants(project)
-
-        verify { project.tasks.register("printBuildVariants", capture(captureSlot)) }
-        val mockTask = mockk<Task>()
-        every { mockTask.description = any() } returns Unit
-        every { mockTask.doLast(any<Action<Task>>()) } returns mockk()
-
-        captureSlot.captured.execute(mockTask)
+        captureSlot.captured.execute(mockPrintTask)
 
         verify {
-            mockTask.description = "Prints out all build variants for this Android project"
+            mockPrintTask.description = "Prints out all build variants for this Android project"
         }
     }
 }
