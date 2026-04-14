@@ -1968,6 +1968,9 @@ void Canvas::AddRenderSDFEntityToCurrentPass(const Paint& paint,
   entity.SetBlendMode(paint.blend_mode);
 
   if (paint.color_source) {
+    // Since we are going to use BlendMode::kSrcIn to implement the color_source
+    // the SDF portion of the blend should just be solid white to get the
+    // correct color from the color_source.
     params.color = Color::White();
   }
   auto geometry = std::make_unique<UberSDFGeometry>(params);

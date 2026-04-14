@@ -51,7 +51,13 @@ float distanceFromChamferRect(vec2 p, vec2 b, float chamfer) {
   return length(d);
 }
 
-// Math is exact for rounded rect.
+// Exact math for rounded rect.
+//
+// `p` is position relative to the center of the shape.
+// `b` is size of box with corners at the origin.
+// `r` is radii for each corner in order [top_left, top_right, bottom_left,
+// bottom_right].
+//
 // See https://iquilezles.org/articles/distfunctions2d/
 float distanceFromRoundedRect(in vec2 p, in vec2 b, in vec4 r) {
   r.xy = (p.x > 0.0) ? r.xy : r.zw;

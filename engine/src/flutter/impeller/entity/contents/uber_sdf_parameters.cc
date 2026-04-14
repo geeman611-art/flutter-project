@@ -53,18 +53,11 @@ UberSDFParameters UberSDFParameters::MakeRoundedRect(
     const Vector4& radii,
     std::optional<StrokeParameters> stroke) {
   Point size = Point(rect.GetSize() * 0.5f);
-
-  std::optional<StrokeParameters> adjusted_stroke =
-      stroke && stroke->join == Join::kMiter && stroke->miter_limit < kSqrt2
-          ? std::make_optional(StrokeParameters(
-                {.width = stroke->width, .join = Join::kBevel}))
-          : stroke;
-
   return UberSDFParameters{.type = Type::kRoundedRect,
                            .color = color,
                            .center = rect.GetCenter(),
                            .size = size,
-                           .stroke = adjusted_stroke,
+                           .stroke = stroke,
                            .radii = radii};
 }
 
