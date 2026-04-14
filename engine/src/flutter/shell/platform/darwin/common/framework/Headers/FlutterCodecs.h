@@ -13,8 +13,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 /**
  * A message encoding/decoding mechanism.
+ *
+ * The implementation must be thread-safe as the codec can be used on any thread.
  */
 FLUTTER_DARWIN_EXPORT
+NS_SWIFT_SENDABLE
 @protocol FlutterMessageCodec
 /**
  * Returns a shared instance of this `FlutterMessageCodec`.
@@ -24,6 +27,9 @@ FLUTTER_DARWIN_EXPORT
 /**
  * Encodes the specified message into binary.
  *
+ * The return value should typically avoid sharing memory with `message` to
+ * avoid data races.
+ *
  * @param message The message.
  * @return The binary encoding, or `nil`, if `message` was `nil`.
  */
@@ -31,6 +37,9 @@ FLUTTER_DARWIN_EXPORT
 
 /**
  * Decodes the specified message from binary.
+ *
+ * The implementation should typically copy data from `message` to avoid data
+ * races.
  *
  * @param message The message.
  * @return The decoded message, or `nil`, if `message` was `nil`.
@@ -49,6 +58,7 @@ FLUTTER_DARWIN_EXPORT
  * On the Dart side, messages are represented using `ByteData`.
  */
 FLUTTER_DARWIN_EXPORT
+NS_SWIFT_SENDABLE
 @interface FlutterBinaryCodec : NSObject <FlutterMessageCodec>
 @end
 
@@ -60,6 +70,7 @@ FLUTTER_DARWIN_EXPORT
  * on the Dart side. These parts of the Flutter SDK are evolved synchronously.
  */
 FLUTTER_DARWIN_EXPORT
+NS_SWIFT_SENDABLE
 @interface FlutterStringCodec : NSObject <FlutterMessageCodec>
 @end
 
@@ -78,6 +89,7 @@ FLUTTER_DARWIN_EXPORT
  * package.
  */
 FLUTTER_DARWIN_EXPORT
+NS_SWIFT_SENDABLE
 @interface FlutterJSONMessageCodec : NSObject <FlutterMessageCodec>
 @end
 
@@ -89,6 +101,7 @@ FLUTTER_DARWIN_EXPORT
  * The encoding is extensible via subclasses overriding `writeValue`.
  */
 FLUTTER_DARWIN_EXPORT
+NS_SWIFT_NONSENDABLE
 @interface FlutterStandardWriter : NSObject
 /**
  * Create a `FlutterStandardWriter` who will write to \p data.
@@ -129,6 +142,7 @@ FLUTTER_DARWIN_EXPORT
  * The encoding is extensible via subclasses overriding `readValueOfType`.
  */
 FLUTTER_DARWIN_EXPORT
+NS_SWIFT_NONSENDABLE
 @interface FlutterStandardReader : NSObject
 /**
  * Create a new `FlutterStandardReader` who reads from \p data.
@@ -169,6 +183,7 @@ FLUTTER_DARWIN_EXPORT
  * binary encoding or extensions thereof.
  */
 FLUTTER_DARWIN_EXPORT
+NS_SWIFT_SENDABLE
 @interface FlutterStandardReaderWriter : NSObject
 /**
  * Create a new `FlutterStandardWriter` for writing to \p data.
@@ -206,6 +221,7 @@ FLUTTER_DARWIN_EXPORT
  * - `NSDictionary`: `Map`
  */
 FLUTTER_DARWIN_EXPORT
+NS_SWIFT_SENDABLE
 @interface FlutterStandardMessageCodec : NSObject <FlutterMessageCodec>
 /**
  * Create a `FlutterStandardMessageCodec` who will read and write to \p readerWriter.
@@ -217,6 +233,7 @@ FLUTTER_DARWIN_EXPORT
  * Command object representing a method call on a `FlutterMethodChannel`.
  */
 FLUTTER_DARWIN_EXPORT
+NS_SWIFT_SENDABLE
 @interface FlutterMethodCall : NSObject
 /**
  * Creates a method call for invoking the specified named method with the
@@ -243,6 +260,7 @@ FLUTTER_DARWIN_EXPORT
  * on a `FlutterMethodChannel`, or an error event on a `FlutterEventChannel`.
  */
 FLUTTER_DARWIN_EXPORT
+NS_SWIFT_SENDABLE
 @interface FlutterError : NSObject
 /**
  * Creates a `FlutterError` with the specified error code, message, and details.
@@ -297,6 +315,7 @@ typedef NS_ENUM(NSInteger, FlutterStandardDataType) {
  * endianness is assumed.
  */
 FLUTTER_DARWIN_EXPORT
+NS_SWIFT_SENDABLE
 @interface FlutterStandardTypedData : NSObject
 /**
  * Creates a `FlutterStandardTypedData` which interprets the specified data
@@ -388,6 +407,7 @@ FLUTTER_UNAVAILABLE("Unavailable on 2018-08-31. Deprecated on 2018-01-09. "
  * populate a `FlutterError`.
  */
 FLUTTER_DARWIN_EXPORT
+NS_SWIFT_SENDABLE
 @protocol FlutterMethodCodec
 /**
  * Provides access to a shared instance this codec.
@@ -452,6 +472,7 @@ FLUTTER_DARWIN_EXPORT
  * those supported as top-level or leaf values by `FlutterJSONMessageCodec`.
  */
 FLUTTER_DARWIN_EXPORT
+NS_SWIFT_SENDABLE
 @interface FlutterJSONMethodCodec : NSObject <FlutterMethodCodec>
 @end
 
@@ -466,6 +487,7 @@ FLUTTER_DARWIN_EXPORT
  * `FlutterStandardMessageCodec`.
  */
 FLUTTER_DARWIN_EXPORT
+NS_SWIFT_SENDABLE
 @interface FlutterStandardMethodCodec : NSObject <FlutterMethodCodec>
 /**
  * Create a `FlutterStandardMethodCodec` who will read and write to \p readerWriter.
