@@ -964,8 +964,8 @@ void Canvas::DrawRoundRect(const RoundRect& round_rect, const Paint& paint) {
         /*color=*/paint.color,
         /*rect=*/round_rect.GetBounds(),
         /*radii=*/
-        Vector4(radii.top_left.width, radii.top_right.width,
-                radii.bottom_left.width, radii.bottom_right.width),
+        Vector4(radii.bottom_right.width, radii.top_right.width,
+                radii.bottom_left.width, radii.top_left.width),
         /*stroke=*/paint.style == Paint::Style::kStroke
             ? std::make_optional(paint.stroke)
             : std::nullopt);

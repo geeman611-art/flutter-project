@@ -55,8 +55,8 @@ float distanceFromChamferRect(vec2 p, vec2 b, float chamfer) {
 //
 // `p` is position relative to the center of the shape.
 // `b` is size of box with corners at the origin.
-// `r` is radii for each corner in order [top_left, top_right, bottom_left,
-// bottom_right].
+// `r` is radii for each corner in order [bottom_right, top_right, bottom_left,
+// top_left].
 //
 // See https://iquilezles.org/articles/distfunctions2d/
 //
