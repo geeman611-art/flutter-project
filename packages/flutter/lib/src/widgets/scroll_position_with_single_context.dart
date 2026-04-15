@@ -15,6 +15,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter/rendering.dart';
 
+import '_browser_scroll_view_io.dart' if (dart.library.js_interop) '_browser_scroll_view_web.dart';
 import 'basic.dart';
 import 'framework.dart';
 import 'scroll_activity.dart';
@@ -22,6 +23,7 @@ import 'scroll_context.dart';
 import 'scroll_notification.dart';
 import 'scroll_physics.dart';
 import 'scroll_position.dart';
+import 'scrollable.dart';
 
 /// A scroll position that manages scroll activities for a single
 /// [ScrollContext].
@@ -128,7 +130,39 @@ class ScrollPositionWithSingleContext extends ScrollPosition implements ScrollAc
   @override
   void applyUserOffset(double delta) {
     updateUserScrollDirection(delta > 0.0 ? ScrollDirection.forward : ScrollDirection.reverse);
-    setPixels(pixels - physics.applyPhysicsToUserOffset(this, delta));
+
+    final BrowserScrollViewBinding? binding = ScrollableState.browserScrollViewBinding;
+    final double proposed = pixels - physics.applyPhysicsToUserOffset(this, delta);
+
+    if (binding != null) {
+      // When browser scrolling is active, clamp pixels at each boundary and
+      // forward the excess to the browser so the outer page scrolls.
+      //
+      // At maxScrollExtent (bottom): clamping prevents the inner list from
+      // rubber-band bouncing while the parent simultaneously scrolls
+      // (double-scroll artifact).
+      //
+      // At minScrollExtent (top): clamping keeps pixels at the boundary while
+      // didOverscrollBy dispatches an OverscrollNotification, which
+      // RefreshIndicator needs to reveal itself. This mirrors how
+      // RefreshIndicator works with ClampingScrollPhysics on Android — the
+      // indicator accumulates the overscroll amount from the notification, not
+      // from pixels going negative.
+      if (proposed > maxScrollExtent) {
+        final double excess = proposed - maxScrollExtent;
+        setPixels(maxScrollExtent);
+        binding.browserScrollBy(excess);
+      } else if (proposed < minScrollExtent) {
+        final double excess = proposed - minScrollExtent;
+        setPixels(minScrollExtent);
+        didOverscrollBy(excess);
+        binding.browserScrollBy(excess);
+      } else {
+        setPixels(proposed);
+      }
+    } else {
+      setPixels(proposed);
+    }
   }
 
   @override
@@ -175,6 +209,16 @@ class ScrollPositionWithSingleContext extends ScrollPosition implements ScrollAc
 
   @override
   Future<void> animateTo(double to, {required Duration duration, required Curve curve}) {
+    // When browser scrolling is active on the outermost scrollable, pixels
+    // never moves through normal Dart physics (BrowserScrollPhysics returns
+    // the entire delta as overscroll). Delegate to the browser's smooth scroll
+    // so the developer's controller.animateTo() call works transparently.
+    final BrowserScrollViewBinding? binding = ScrollableState.browserScrollViewBinding;
+    if (binding != null && physics is BrowserScrollPhysics) {
+      binding.browserSmoothScrollTo(to);
+      return Future<void>.value();
+    }
+
     if (nearEqual(to, pixels, physics.toleranceFor(this).distance)) {
       // Skip the animation, go straight to the position as we are already close.
       jumpTo(to);
@@ -195,6 +239,14 @@ class ScrollPositionWithSingleContext extends ScrollPosition implements ScrollAc
 
   @override
   void jumpTo(double value) {
+    // When browser scrolling is active on the outermost scrollable, delegate
+    // to the browser's instant scroll so controller.jumpTo() works transparently.
+    final BrowserScrollViewBinding? binding = ScrollableState.browserScrollViewBinding;
+    if (binding != null && physics is BrowserScrollPhysics) {
+      binding.browserScrollTo(value);
+      return;
+    }
+
     goIdle();
     if (pixels != value) {
       final double oldPixels = pixels;
