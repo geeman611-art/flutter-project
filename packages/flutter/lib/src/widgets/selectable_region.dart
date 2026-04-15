@@ -2963,6 +2963,37 @@ abstract class MultiSelectableSelectionContainerDelegate extends SelectionContai
     return SelectionResult.none;
   }
 
+  /// Finds the index of the [Selectable] in [selectables] whose global
+  /// bounding box is closest to [globalPosition].
+  ///
+  /// This is used to clamp selection gestures that land in empty space
+  /// (such as padding) to the nearest selectable content.
+  int _closestSelectableIndexTo(Offset globalPosition) {
+    assert(selectables.isNotEmpty);
+    double minDistanceSquared = double.infinity;
+    var closestIndex = 0;
+    for (var index = 0; index < selectables.length; index += 1) {
+      final Selectable selectable = selectables[index];
+      final Matrix4 transform = selectable.getTransformTo(null);
+      for (final Rect rect in selectable.boundingBoxes) {
+        final Rect globalRect = MatrixUtils.transformRect(transform, rect);
+        final double dx =
+            globalPosition.dx - globalPosition.dx.clamp(globalRect.left, globalRect.right);
+        final double dy =
+            globalPosition.dy - globalPosition.dy.clamp(globalRect.top, globalRect.bottom);
+        final double distanceSquared = dx * dx + dy * dy;
+        if (distanceSquared < minDistanceSquared) {
+          minDistanceSquared = distanceSquared;
+          closestIndex = index;
+          if (distanceSquared == 0.0) {
+            return closestIndex;
+          }
+        }
+      }
+    }
+    return closestIndex;
+  }
+
   SelectionResult _handleSelectBoundary(SelectionEvent event) {
     assert(
       event is SelectWordSelectionEvent || event is SelectParagraphSelectionEvent,
@@ -3021,6 +3052,24 @@ abstract class MultiSelectableSelectionContainerDelegate extends SelectionContai
       }
     }
     assert(lastSelectionResult == null);
+    // No selectable's bounding box contained the position. Clamp to the nearest
+    // selectable so that the boundary selection event always produces a valid selection.
+    if (selectables.isNotEmpty) {
+      final int nearestIndex = _closestSelectableIndexTo(effectiveGlobalPosition);
+      final SelectionGeometry existingGeometry = selectables[nearestIndex].value;
+      dispatchSelectionEventToChild(selectables[nearestIndex], event);
+      if (selectables[nearestIndex].value != existingGeometry) {
+        // Geometry has changed as a result of select word, need to clear the
+        // selection of other selectables to keep selection in sync.
+        selectables
+            .where((Selectable target) => target != selectables[nearestIndex])
+            .forEach(
+              (Selectable target) =>
+                  dispatchSelectionEventToChild(target, const ClearSelectionEvent()),
+            );
+        currentSelectionStartIndex = currentSelectionEndIndex = nearestIndex;
+      }
+    }
     return SelectionResult.end;
   }
 
