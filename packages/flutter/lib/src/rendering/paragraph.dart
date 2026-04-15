@@ -1164,6 +1164,20 @@ class RenderParagraph extends RenderBox
     return _textPainter.size;
   }
 
+  /// {@macro flutter.painting.TextPainter.computeLineMetrics}
+  ///
+  /// {@tool dartpad}
+  /// This example shows how to use [RenderParagraph.computeLineMetrics]
+  /// to access per-line layout metrics.
+  ///
+  /// ** See code in `examples/api/lib/painting/line_metrics_example.dart` **
+  /// {@end-tool}
+  List<ui.LineMetrics> computeLineMetrics() {
+    assert(!debugNeedsLayout);
+    _layoutTextWithConstraints(constraints);
+    return _textPainter.computeLineMetrics();
+  }
+
   /// Whether the text was truncated or ellipsized as laid out.
   ///
   /// This returns the [TextPainter.didExceedMaxLines] of the underlying [TextPainter].
