@@ -267,6 +267,8 @@ class RegularWindowControllerLinux extends RegularWindowController
       setTitle(title);
     }
     _window.setDecorated(decorated);
+    _window.realize();
+
     final engine = _FlEngine.current();
     _view = _FlView(engine);
     _viewMonitor = _FlViewMonitor(
@@ -457,6 +459,7 @@ class DialogWindowControllerLinux extends DialogWindowController implements Wind
       _window.setTransientFor(parentWindow);
       _window.setModal(true);
     }
+    _window.realize();
 
     _windowMonitor = _FlWindowMonitor(
       _window,
