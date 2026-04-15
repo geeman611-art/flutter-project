@@ -86,6 +86,7 @@ class TextSpan extends InlineSpan implements HitTestTarget, MouseTrackerAnnotati
     this.onExit,
     this.semanticsLabel,
     this.semanticsIdentifier,
+    this.tooltip,
     this.locale,
     this.spellOut,
   }) : mouseCursor =
@@ -238,6 +239,17 @@ class TextSpan extends InlineSpan implements HitTestTarget, MouseTrackerAnnotati
   /// a dependency on the actual content of the text that can possibly be
   /// dynamic in nature.
   final String? semanticsIdentifier;
+
+  /// A textual description of the tooltip for this [TextSpan].
+  ///
+  /// In Android, this property sets the
+  /// `AccessibilityNodeInfo.setTooltipText`.
+  /// In iOS, this property is appended to the end of the
+  /// `UIAccessibilityElement.accessibilityLabel`.
+  ///
+  /// When set, the span will receive its own semantics node so the platform
+  /// accessibility tree can present the tooltip for this specific text segment.
+  final String? tooltip;
 
   /// The language of the text in this span and its span children.
   ///
@@ -425,6 +437,7 @@ class TextSpan extends InlineSpan implements HitTestTarget, MouseTrackerAnnotati
           semanticsLabel: semanticsLabel,
           semanticsIdentifier: semanticsIdentifier,
           recognizer: recognizer,
+          tooltip: tooltip,
         ),
       );
     }
@@ -491,7 +504,7 @@ class TextSpan extends InlineSpan implements HitTestTarget, MouseTrackerAnnotati
         (style == null) != (textSpan.style == null)) {
       return RenderComparison.layout;
     }
-    RenderComparison result = recognizer == textSpan.recognizer
+    RenderComparison result = recognizer == textSpan.recognizer && tooltip == textSpan.tooltip
         ? RenderComparison.identical
         : RenderComparison.metadata;
     if (style != null) {
@@ -533,6 +546,7 @@ class TextSpan extends InlineSpan implements HitTestTarget, MouseTrackerAnnotati
         other.recognizer == recognizer &&
         other.semanticsLabel == semanticsLabel &&
         other.semanticsIdentifier == semanticsIdentifier &&
+        other.tooltip == tooltip &&
         onEnter == other.onEnter &&
         onExit == other.onExit &&
         mouseCursor == other.mouseCursor &&
@@ -546,6 +560,7 @@ class TextSpan extends InlineSpan implements HitTestTarget, MouseTrackerAnnotati
     recognizer,
     semanticsLabel,
     semanticsIdentifier,
+    tooltip,
     onEnter,
     onExit,
     mouseCursor,
@@ -586,6 +601,10 @@ class TextSpan extends InlineSpan implements HitTestTarget, MouseTrackerAnnotati
 
     if (semanticsIdentifier != null) {
       properties.add(StringProperty('semanticsIdentifier', semanticsIdentifier));
+    }
+
+    if (tooltip != null) {
+      properties.add(StringProperty('tooltip', tooltip));
     }
   }
 

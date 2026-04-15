@@ -192,6 +192,65 @@ void main() {
     expect(tester.getSize(find.byType(IntrinsicHeight)).height, 3 * 16);
   });
 
+  testWidgets('TextSpan tooltip produces semantics node with tooltip', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: RichText(
+          text: const TextSpan(
+            text: 'before ',
+            children: <InlineSpan>[
+              TextSpan(text: 'hover me', tooltip: 'a tooltip'),
+              TextSpan(text: ' after'),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      tester.getSemantics(find.byType(RichText)),
+      matchesSemantics(
+        children: <Matcher>[
+          matchesSemantics(label: 'before '),
+          matchesSemantics(label: 'hover me', tooltip: 'a tooltip'),
+          matchesSemantics(label: ' after'),
+        ],
+      ),
+    );
+  });
+
+  testWidgets('TextSpan tooltip with recognizer produces correct semantics', (
+    WidgetTester tester,
+  ) async {
+    final recognizer = TapGestureRecognizer()..onTap = () {};
+    addTearDown(recognizer.dispose);
+
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: RichText(
+          text: TextSpan(
+            text: 'root',
+            children: <InlineSpan>[
+              TextSpan(text: 'link', recognizer: recognizer, tooltip: 'tap here'),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      tester.getSemantics(find.byType(RichText)),
+      matchesSemantics(
+        children: <Matcher>[
+          matchesSemantics(label: 'root'),
+          matchesSemantics(label: 'link', tooltip: 'tap here', hasTapAction: true, isLink: true),
+        ],
+      ),
+    );
+  });
+
   testWidgets('RichText implements debugFillProperties', (WidgetTester tester) async {
     final builder = DiagnosticPropertiesBuilder();
     RichText(

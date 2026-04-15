@@ -1185,7 +1185,7 @@ class RenderParagraph extends RenderBox
     var needsAssembleSemanticsNode = false;
     var needsChildConfigurationsDelegate = false;
     for (final InlineSpanSemanticsInformation info in _semanticsInfo!) {
-      if (info.recognizer != null || info.semanticsIdentifier != null) {
+      if (info.recognizer != null || info.semanticsIdentifier != null || info.tooltip != null) {
         needsAssembleSemanticsNode = true;
         break;
       }
@@ -1371,7 +1371,8 @@ class RenderParagraph extends RenderBox
           ..attributedLabel = AttributedString(
             info.semanticsLabel ?? info.text,
             attributes: info.stringAttributes,
-          );
+          )
+          ..tooltip = info.tooltip ?? '';
         switch (info.recognizer) {
           case TapGestureRecognizer(onTap: final VoidCallback? handler):
           case DoubleTapGestureRecognizer(onDoubleTap: final VoidCallback? handler):

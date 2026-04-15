@@ -68,8 +68,9 @@ class InlineSpanSemanticsInformation {
     this.semanticsIdentifier,
     this.stringAttributes = const <ui.StringAttribute>[],
     this.recognizer,
-  }) : assert(!isPlaceholder || (text == '\uFFFC' && semanticsLabel == null && recognizer == null)),
-       requiresOwnNode = isPlaceholder || recognizer != null || semanticsIdentifier != null;
+    this.tooltip,
+  }) : assert(!isPlaceholder || (text == '\uFFFC' && semanticsLabel == null && recognizer == null && tooltip == null)),
+       requiresOwnNode = isPlaceholder || recognizer != null || semanticsIdentifier != null || tooltip != null;
 
   /// The text info for a [PlaceholderSpan].
   static const InlineSpanSemanticsInformation placeholder = InlineSpanSemanticsInformation(
@@ -90,13 +91,17 @@ class InlineSpanSemanticsInformation {
   /// The gesture recognizer, if any, for this span.
   final GestureRecognizer? recognizer;
 
+  /// The tooltip, if any, for this span.
+  final String? tooltip;
+
   /// Whether this is for a placeholder span.
   final bool isPlaceholder;
 
   /// True if this configuration should get its own semantics node.
   ///
   /// This will be the case if the [recognizer] is not null, or if
-  /// [isPlaceholder] is true, or if [semanticsIdentifier] has a value.
+  /// [isPlaceholder] is true, or if [semanticsIdentifier] has a value,
+  /// or if [tooltip] has a value.
   final bool requiresOwnNode;
 
   /// The string attributes attached to this semantics information
@@ -109,17 +114,18 @@ class InlineSpanSemanticsInformation {
         other.semanticsLabel == semanticsLabel &&
         other.semanticsIdentifier == semanticsIdentifier &&
         other.recognizer == recognizer &&
+        other.tooltip == tooltip &&
         other.isPlaceholder == isPlaceholder &&
         listEquals<ui.StringAttribute>(other.stringAttributes, stringAttributes);
   }
 
   @override
   int get hashCode =>
-      Object.hash(text, semanticsLabel, semanticsIdentifier, recognizer, isPlaceholder);
+      Object.hash(text, semanticsLabel, semanticsIdentifier, recognizer, tooltip, isPlaceholder);
 
   @override
   String toString() =>
-      '${objectRuntimeType(this, 'InlineSpanSemanticsInformation')}{text: $text, semanticsLabel: $semanticsLabel, semanticsIdentifier: $semanticsIdentifier, recognizer: $recognizer}';
+      '${objectRuntimeType(this, 'InlineSpanSemanticsInformation')}{text: $text, semanticsLabel: $semanticsLabel, semanticsIdentifier: $semanticsIdentifier, recognizer: $recognizer, tooltip: $tooltip}';
 }
 
 /// Combines _semanticsInfo entries where permissible.

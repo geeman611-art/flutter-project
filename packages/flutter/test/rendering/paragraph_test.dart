@@ -1572,6 +1572,61 @@ void main() {
       expect(() => paragraph.positionInlineChildren(boxes), returnsNormally);
     });
   });
+
+  test('assembleSemanticsNode creates separate node for tooltip span', () {
+    final paragraph = RenderParagraph(
+      const TextSpan(
+        text: _kText,
+        children: <InlineSpan>[
+          TextSpan(text: 'hover me', tooltip: 'a tooltip'),
+        ],
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    layout(paragraph);
+
+    final node = SemanticsNode();
+    paragraph.assembleSemanticsNode(node, SemanticsConfiguration(), <SemanticsNode>[]);
+    final children = <SemanticsNode>[];
+    node.visitChildren((SemanticsNode child) {
+      children.add(child);
+      return true;
+    });
+    expect(children.length, 2);
+    expect(children[0].getSemanticsData().tooltip, '');
+    expect(children[1].getSemanticsData().tooltip, 'a tooltip');
+    expect(children[1].getSemanticsData().label, 'hover me');
+  });
+
+  test('assembleSemanticsNode sets tooltip alongside recognizer', () {
+    final paragraph = RenderParagraph(
+      TextSpan(
+        text: _kText,
+        children: <InlineSpan>[
+          TextSpan(
+            text: 'link',
+            recognizer: TapGestureRecognizer()..onTap = () {},
+            tooltip: 'tap tooltip',
+          ),
+        ],
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    layout(paragraph);
+
+    final node = SemanticsNode();
+    paragraph.assembleSemanticsNode(node, SemanticsConfiguration(), <SemanticsNode>[]);
+    final children = <SemanticsNode>[];
+    node.visitChildren((SemanticsNode child) {
+      children.add(child);
+      return true;
+    });
+    expect(children.length, 2);
+    final data = children[1].getSemanticsData();
+    expect(data.tooltip, 'tap tooltip');
+    expect(data.label, 'link');
+    expect(data.hasAction(SemanticsAction.tap), true);
+  });
 }
 
 class MockCanvas extends Fake implements Canvas {

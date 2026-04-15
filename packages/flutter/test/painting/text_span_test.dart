@@ -479,4 +479,79 @@ void main() {
     expect(combined[0].stringAttributes[3], isA<SpellOutStringAttribute>());
     expect(combined[0].stringAttributes[3].range, const TextRange(start: 20, end: 25));
   });
+
+  test('TextSpan computeSemanticsInformation with tooltip', () {
+    final collector = <InlineSpanSemanticsInformation>[];
+    const TextSpan(
+      text: 'aaa',
+      semanticsLabel: 'bbb',
+      tooltip: 'my tooltip',
+    ).computeSemanticsInformation(collector);
+    expect(collector[0].text, 'aaa');
+    expect(collector[0].semanticsLabel, 'bbb');
+    expect(collector[0].tooltip, 'my tooltip');
+    expect(collector[0].requiresOwnNode, isTrue);
+  });
+
+  test('InlineSpanSemanticsInformation requiresOwnNode with tooltip', () {
+    const info = InlineSpanSemanticsInformation(
+      'test',
+      tooltip: 'tip',
+    );
+    expect(info.requiresOwnNode, isTrue);
+
+    const infoWithout = InlineSpanSemanticsInformation('test');
+    expect(infoWithout.requiresOwnNode, isFalse);
+  });
+
+  test('InlineSpanSemanticsInformation equality includes tooltip', () {
+    const a = InlineSpanSemanticsInformation('text', tooltip: 'tip');
+    const b = InlineSpanSemanticsInformation('text', tooltip: 'tip');
+    const c = InlineSpanSemanticsInformation('text', tooltip: 'other');
+    const d = InlineSpanSemanticsInformation('text');
+
+    expect(a == b, isTrue);
+    expect(a == c, isFalse);
+    expect(a == d, isFalse);
+    expect(a.hashCode == b.hashCode, isTrue);
+  });
+
+  test('TextSpan equality includes tooltip', () {
+    const a = TextSpan(text: 'hello', tooltip: 'tip');
+    const b = TextSpan(text: 'hello', tooltip: 'tip');
+    const c = TextSpan(text: 'hello', tooltip: 'other');
+    const d = TextSpan(text: 'hello');
+
+    expect(a == b, isTrue);
+    expect(a == c, isFalse);
+    expect(a == d, isFalse);
+    expect(a.hashCode == b.hashCode, isTrue);
+  });
+
+  test('TextSpan compareTo with tooltip returns metadata', () {
+    const a = TextSpan(text: 'hello');
+    const b = TextSpan(text: 'hello', tooltip: 'tip');
+
+    expect(a.compareTo(b), RenderComparison.metadata);
+    expect(b.compareTo(a), RenderComparison.metadata);
+    expect(a.compareTo(a), RenderComparison.identical);
+    expect(b.compareTo(b), RenderComparison.identical);
+  });
+
+  test('combineSemanticsInfo keeps tooltip spans separate', () {
+    final infoList = <InlineSpanSemanticsInformation>[
+      const InlineSpanSemanticsInformation('before '),
+      const InlineSpanSemanticsInformation('hover me', tooltip: 'a tooltip'),
+      const InlineSpanSemanticsInformation(' after'),
+    ];
+    final combined = combineSemanticsInfo(infoList);
+    expect(combined.length, 3);
+    expect(combined[0].text, 'before ');
+    expect(combined[0].requiresOwnNode, isFalse);
+    expect(combined[1].text, 'hover me');
+    expect(combined[1].tooltip, 'a tooltip');
+    expect(combined[1].requiresOwnNode, isTrue);
+    expect(combined[2].text, ' after');
+    expect(combined[2].requiresOwnNode, isFalse);
+  });
 }
