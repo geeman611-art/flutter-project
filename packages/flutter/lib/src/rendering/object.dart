@@ -2228,6 +2228,7 @@ abstract class RenderObject with DiagnosticableTreeMixin implements HitTestTarge
         stack: stack,
         library: 'rendering library',
         context: ErrorDescription('during $method()'),
+        contextElement: this,
         informationCollector: () => <DiagnosticsNode>[
           // debugCreator should always be null outside of debugMode, but we want
           // the tree shaker to notice this.
@@ -6770,4 +6771,10 @@ class DiagnosticsDebugCreator extends DiagnosticsProperty<Object> {
   /// [RenderObject.debugCreator].
   DiagnosticsDebugCreator(Object value)
     : super('debugCreator', value, level: DiagnosticLevel.hidden);
+}
+
+/// Extension that adds the [renderObject] property to [FlutterErrorDetails].
+extension FlutterErrorDetailsRenderObject on FlutterErrorDetails {
+  /// The [RenderObject] that was being processed when the exception was fired.
+  RenderObject? get renderObject => contextElement is RenderObject ? contextElement as RenderObject : null;
 }
