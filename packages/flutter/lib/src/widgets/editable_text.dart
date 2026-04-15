@@ -3571,6 +3571,39 @@ class EditableTextState extends State<EditableText>
   /// remote value is outdated and needs updating.
   TextEditingValue? _lastKnownRemoteTextEditingValue;
 
+  // When true, the next call to updateEditingValue on a readOnly widget
+  // discards the incoming selection. Used to suppress an unsolicited platform
+  // word-selection (e.g. the browser's hidden textarea word-selecting on
+  // right-click) when Flutter's gesture handler has already applied the correct
+  // selection. The flag is always consumed by the very next updateEditingValue
+  // call that has an active input connection, regardless of readOnly state.
+  bool _suppressNextPlatformSelectionUpdate = false;
+
+  /// Schedules suppression of the next platform-driven selection update on a
+  /// [readOnly] [EditableText].
+  ///
+  /// Called by [TextSelectionGestureDetectorBuilder.onSecondaryTap] after
+  /// applying the desired selection, to prevent an asynchronous platform
+  /// update (e.g. the browser's hidden textarea word-selecting on right-click)
+  /// from overriding it. This applies to all text widgets that use the base
+  /// gesture builder ([SelectableText], [TextField], [EditableText]).
+  ///
+  /// The flag is always consumed by the very next [updateEditingValue] call
+  /// that reaches an active input connection, regardless of whether the
+  /// incoming value actually differs from the current one. This prevents the
+  /// flag from leaking if called on a non-[readOnly] widget (in that case the
+  /// flag is consumed but the update proceeds normally).
+  ///
+  /// On platforms where no input connection exists for [readOnly] text
+  /// (i.e. non-web, non-macOS), [updateEditingValue] returns early before
+  /// reaching the flag, so suppression has no observable effect there.
+  ///
+  /// This method is framework-internal. It is called by the base gesture
+  /// handler and should not be called from application code.
+  void suppressNextPlatformSelectionUpdate() {
+    _suppressNextPlatformSelectionUpdate = true;
+  }
+
   @override
   TextEditingValue get currentTextEditingValue => _value;
 
@@ -3592,9 +3625,24 @@ class EditableTextState extends State<EditableText>
       );
     }
 
+    // Always consume the suppression flag when updateEditingValue is reached
+    // with an active connection. This prevents the flag from leaking if it was
+    // set on a non-readOnly widget (where the readOnly block below is skipped).
+    final bool suppressUpdate = _suppressNextPlatformSelectionUpdate;
+    _suppressNextPlatformSelectionUpdate = false;
+
     if (widget.readOnly) {
       // In the read-only case, we only care about selection changes, and reject
       // everything else.
+      if (suppressUpdate) {
+        // The base class onSecondaryTap has already applied the correct
+        // selection and requested that the next platform update be discarded.
+        // This prevents an unsolicited platform word-selection (e.g. the
+        // browser's hidden textarea word-selecting on right-click) from
+        // overriding the Flutter-managed selection.
+        _lastKnownRemoteTextEditingValue = _value;
+        return;
+      }
       value = _value.copyWith(selection: value.selection);
     }
     _lastKnownRemoteTextEditingValue = value;
