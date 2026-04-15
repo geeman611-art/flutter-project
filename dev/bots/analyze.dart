@@ -19,6 +19,7 @@ import 'package:path/path.dart' as path;
 
 import 'allowlist.dart';
 import 'custom_rules/analyze.dart';
+import 'custom_rules/avoid_debug_only_rendering_getters.dart';
 import 'custom_rules/avoid_future_catcherror.dart';
 import 'custom_rules/no_double_clamp.dart';
 import 'custom_rules/no_stop_watches.dart';
@@ -200,6 +201,7 @@ Future<void> run(List<String> arguments) async {
     // lints are easier to write when they can assume, for example, there is no
     // inheritance cycles.
     final rules = <AnalyzeRule>[
+      avoidDebugOnlyRenderingGetters,
       noDoubleClamp,
       noStopwatches,
       renderBoxIntrinsicCalculation,
@@ -733,8 +735,8 @@ class _DeprecationMessagesVisitor extends RecursiveAstVisitor<void> {
     super.visitAnnotation(node);
     final bool shouldCheckAnnotation =
         node.name.name == 'Deprecated' &&
-        !hasInlineIgnore(node, parseResult, ignoreDeprecration) &&
-        !hasInlineIgnore(node, parseResult, legacyDeprecation);
+        !hasInlineIgnore(node, parseResult.content, parseResult.lineInfo, ignoreDeprecration) &&
+        !hasInlineIgnore(node, parseResult.content, parseResult.lineInfo, legacyDeprecation);
     if (!shouldCheckAnnotation) {
       return;
     }
@@ -1047,8 +1049,8 @@ class _TestSkipLinesVisitor<T> extends RecursiveAstVisitor<T> {
     r'// .*https+?://github.com/.*/issues/\d+',
   );
   bool _hasValidJustificationComment(Label skipLabel) {
-    return hasInlineIgnore(skipLabel, parseResult, _skipTestIntentionalPattern) ||
-        hasInlineIgnore(skipLabel, parseResult, _skipTestTrackingBugPattern);
+    return hasInlineIgnore(skipLabel, parseResult.content, parseResult.lineInfo, _skipTestIntentionalPattern) ||
+        hasInlineIgnore(skipLabel, parseResult.content, parseResult.lineInfo, _skipTestTrackingBugPattern);
   }
 
   @override
