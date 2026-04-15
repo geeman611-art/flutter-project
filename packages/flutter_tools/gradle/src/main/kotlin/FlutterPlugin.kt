@@ -334,7 +334,7 @@ class FlutterPlugin : Plugin<Project> {
                 ) {
                     return@configureEach
                 }
-                val copyFlutterAssetsTask: Task =
+                val copyFlutterAssetsTaskProvider: TaskProvider<Copy> =
                     addFlutterDeps(variant, flutterPlugin, targetPlatforms)
 
                 // TODO(gmackall): Migrate to AGPs variant api.
@@ -350,7 +350,7 @@ class FlutterPlugin : Plugin<Project> {
                         @Suppress("DEPRECATION")
                         variantOutput.processResources
                     }
-                processResources.dependsOn(copyFlutterAssetsTask)
+                processResources.dependsOn(copyFlutterAssetsTaskProvider)
 
                 // Copy the output APKs into a known location, so `flutter run` or `flutter build apk`
                 // can discover them. By default, this is `<app-dir>/build/app/outputs/flutter-apk/<filename>.apk`.
@@ -423,7 +423,7 @@ class FlutterPlugin : Plugin<Project> {
             check(androidLibraryExtension != null)
             androidLibraryExtension.libraryVariants.all libraryVariantAll@{
                 val libraryVariant = this
-                var copyFlutterAssetsTask: Task? = null
+                var copyFlutterAssetsTaskProvider: TaskProvider<Copy>? = null
                 val androidAppExtension =
                     appProject.extensions.findByName("android") as? AbstractAppExtension
                 check(androidAppExtension != null)
@@ -458,7 +458,7 @@ class FlutterPlugin : Plugin<Project> {
                     if (FlutterPluginUtils.buildModeFor(appProjectVariant.buildType) != variantBuildMode) {
                         return@applicationVariantAll
                     }
-                    copyFlutterAssetsTask = copyFlutterAssetsTask ?: addFlutterDeps(
+                    copyFlutterAssetsTaskProvider = copyFlutterAssetsTaskProvider ?: addFlutterDeps(
                         libraryVariant,
                         flutterPlugin,
                         targetPlatforms
@@ -470,7 +470,7 @@ class FlutterPlugin : Plugin<Project> {
                             .tasks
                             .findByPath(":$hostAppProjectName:merge${FlutterPluginUtils.capitalize(appProjectVariant.name)}Assets")
                     check(mergeAssets != null)
-                    mergeAssets.dependsOn(copyFlutterAssetsTask)
+                    mergeAssets.dependsOn(copyFlutterAssetsTaskProvider)
                 }
             }
         }
@@ -581,7 +581,7 @@ class FlutterPlugin : Plugin<Project> {
             @Suppress("DEPRECATION") variant: com.android.build.gradle.api.BaseVariant,
             flutterPlugin: FlutterPlugin,
             targetPlatforms: List<String>
-        ): Task {
+        ): TaskProvider<Copy> {
             // Shorthand
             val project: Project = flutterPlugin.project!!
 
@@ -778,7 +778,6 @@ class FlutterPlugin : Plugin<Project> {
                     mergeAssets.mustRunAfter("clean${FlutterPluginUtils.capitalize(mergeAssets.name)}")
                     into(mergeAssets.outputDir)
                 }
-            val copyFlutterAssetsTask: Task = copyFlutterAssetsTaskProvider.get()
             if (!isUsedAsSubproject) {
                 // TODO(gmackall): Migrate to AGPs variant api.
                 //    https://github.com/flutter/flutter/issues/166550
@@ -793,7 +792,7 @@ class FlutterPlugin : Plugin<Project> {
                         @Suppress("DEPRECATION")
                         variantOutput.processResources
                     }
-                processResources.dependsOn(copyFlutterAssetsTask)
+                processResources.dependsOn(copyFlutterAssetsTaskProvider)
             }
             // The following tasks use the output of copyFlutterAssetsTask,
             // so it's necessary to declare it as an dependency since Gradle 8.
@@ -807,13 +806,13 @@ class FlutterPlugin : Plugin<Project> {
             tasksToCheck.forEach { taskTocheck ->
                 try {
                     project.tasks.named(taskTocheck).configure {
-                        dependsOn(copyFlutterAssetsTask)
+                        dependsOn(copyFlutterAssetsTaskProvider)
                     }
                 } catch (ignored: UnknownTaskException) {
                     // ignored
                 }
             }
-            return copyFlutterAssetsTask
+            return copyFlutterAssetsTaskProvider
         }
     }
 
