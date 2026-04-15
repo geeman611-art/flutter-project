@@ -34,6 +34,12 @@ class ContextMenuController {
   /// Called when this menu is removed.
   final VoidCallback? onRemove;
 
+  /// The builder for the context menu.
+  WidgetBuilder? _contextMenuBuilder;
+
+  /// The captured themes for the context menu.
+  CapturedThemes? _capturedThemes;
+
   /// The currently shown instance, if any.
   static ContextMenuController? _shownInstance;
 
@@ -50,24 +56,33 @@ class ContextMenuController {
     required WidgetBuilder contextMenuBuilder,
     Widget? debugRequiredFor,
   }) {
+    _contextMenuBuilder = contextMenuBuilder;
+    _capturedThemes = InheritedTheme.capture(
+      from: context,
+      to: Navigator.maybeOf(context)?.context,
+    );
+
+    if (isShown) {
+      _menuOverlayEntry?.markNeedsBuild();
+      return;
+    }
+
     removeAny();
+
     final OverlayState overlayState = Overlay.of(
       context,
       rootOverlay: true,
       debugRequiredFor: debugRequiredFor,
     );
-    final CapturedThemes capturedThemes = InheritedTheme.capture(
-      from: context,
-      to: Navigator.maybeOf(context)?.context,
-    );
 
     _menuOverlayEntry = OverlayEntry(
       builder: (BuildContext context) {
-        return capturedThemes.wrap(contextMenuBuilder(context));
+        final ContextMenuController instance = _shownInstance!;
+        return instance._capturedThemes!.wrap(instance._contextMenuBuilder!(context));
       },
     );
-    overlayState.insert(_menuOverlayEntry!);
     _shownInstance = this;
+    overlayState.insert(_menuOverlayEntry!);
   }
 
   /// Remove the currently shown context menu from the UI.
@@ -85,6 +100,8 @@ class ContextMenuController {
     _menuOverlayEntry?.dispose();
     _menuOverlayEntry = null;
     if (_shownInstance != null) {
+      _shownInstance!._contextMenuBuilder = null;
+      _shownInstance!._capturedThemes = null;
       _shownInstance!.onRemove?.call();
       _shownInstance = null;
     }

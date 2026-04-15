@@ -345,9 +345,10 @@ class TextSelectionOverlay {
     DragStartBehavior dragStartBehavior = DragStartBehavior.start,
     VoidCallback? onSelectionHandleTapped,
     ClipboardStatusNotifier? clipboardStatus,
-    this.contextMenuBuilder,
+    WidgetBuilder? contextMenuBuilder,
     required TextMagnifierConfiguration magnifierConfiguration,
-  }) : _handlesVisible = handlesVisible,
+  }) : _contextMenuBuilder = contextMenuBuilder,
+       _handlesVisible = handlesVisible,
        _value = value {
     assert(debugMaybeDispatchCreated('widgets', 'TextSelectionOverlay', this));
     renderObject.selectionStartInViewport.addListener(_updateTextSelectionOverlayVisibilities);
@@ -408,7 +409,14 @@ class TextSelectionOverlay {
   /// {@macro flutter.widgets.EditableText.contextMenuBuilder}
   ///
   /// If not provided, no context menu will be built.
-  final WidgetBuilder? contextMenuBuilder;
+  WidgetBuilder? get contextMenuBuilder => _contextMenuBuilder;
+  WidgetBuilder? _contextMenuBuilder;
+  set contextMenuBuilder(WidgetBuilder? value) {
+    if (_contextMenuBuilder == value) {
+      return;
+    }
+    _contextMenuBuilder = value;
+  }
 
   /// Retrieve current value.
   @visibleForTesting
