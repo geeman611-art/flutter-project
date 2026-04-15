@@ -164,12 +164,35 @@ static BOOL IsPowerOfTwo(NSUInteger x) {
     // Only use fallback if there are meaningful launch options.
     return NO;
   }
+
+  // Only send shortcuts and user activities if didFinishLaunching returns YES.
+  //
+  // https://developer.apple.com/documentation/uikit/uiapplicationdelegate/application(_:performactionfor:completionhandler:)#Discussion
   if (![self application:application
           didFinishLaunchingWithOptions:convertedLaunchOptions
                      isFallbackForScene:YES]) {
-    return YES;
+    return NO;
   }
-  return NO;
+
+  UIApplicationShortcutItem* shortcutItem = connectionOptions.shortcutItem;
+  BOOL shortcutHandled = shortcutItem && [self application:application
+                                             performActionForShortcutItem:shortcutItem
+                                                        completionHandler:^(BOOL succeeded) {
+                                                          // Do nothing. Plugins respond
+                                                          // synchronously whether they consume the
+                                                          // item.
+                                                        }
+                                                       isFallbackForScene:YES];
+
+  for (NSUserActivity* activity in connectionOptions.userActivities) {
+    if ([self application:application
+            continueUserActivity:activity
+              restorationHandler:nil
+              isFallbackForScene:YES]) {
+      return YES;
+    }
+  }
+  return shortcutHandled;
 }
 
 - (BOOL)application:(UIApplication*)application
@@ -615,9 +638,8 @@ static NSDictionary<UIApplicationOpenURLOptionsKey, id>* ConvertOptions(
     if (!delegate || (isFallback && [self pluginSupportsSceneLifecycle:delegate])) {
       continue;
     }
-    if ([delegate
-            respondsToSelector:@selector(
-                                   application:performActionForShortcutItem:completionHandler:)]) {
+    if ([delegate respondsToSelector:@selector(application:
+                                         performActionForShortcutItem:completionHandler:)]) {
       if ([delegate application:application
               performActionForShortcutItem:shortcutItem
                          completionHandler:completionHandler]) {
@@ -689,8 +711,8 @@ static NSDictionary<UIApplicationOpenURLOptionsKey, id>* ConvertOptions(
     if (!delegate || (isFallback && [self pluginSupportsSceneLifecycle:delegate])) {
       continue;
     }
-    if ([delegate
-            respondsToSelector:@selector(application:continueUserActivity:restorationHandler:)]) {
+    if ([delegate respondsToSelector:@selector(application:
+                                         continueUserActivity:restorationHandler:)]) {
       if ([delegate application:application
               continueUserActivity:userActivity
                 restorationHandler:restorationHandler]) {
