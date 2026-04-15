@@ -25,12 +25,9 @@ PixelDeferredImageGPUImpeller::PixelDeferredImageGPUImpeller(
 
 PixelDeferredImageGPUImpeller::~PixelDeferredImageGPUImpeller() = default;
 
-sk_sp<SkImage> PixelDeferredImageGPUImpeller::skia_image() const {
-  return nullptr;
-}
-
 std::shared_ptr<impeller::Texture>
-PixelDeferredImageGPUImpeller::impeller_texture() const {
+PixelDeferredImageGPUImpeller::GetImpellerTexture(
+    const std::shared_ptr<impeller::Context>& context) const {
   if (!wrapper_) {
     return nullptr;
   }
@@ -39,10 +36,6 @@ PixelDeferredImageGPUImpeller::impeller_texture() const {
 
 bool PixelDeferredImageGPUImpeller::isOpaque() const {
   return false;
-}
-
-bool PixelDeferredImageGPUImpeller::isTextureBacked() const {
-  return wrapper_ && wrapper_->isTextureBacked();
 }
 
 bool PixelDeferredImageGPUImpeller::isUIThreadSafe() const {
@@ -92,10 +85,6 @@ PixelDeferredImageGPUImpeller::ImageWrapper::ImageWrapper(
 
 PixelDeferredImageGPUImpeller::ImageWrapper::~ImageWrapper() = default;
 
-bool PixelDeferredImageGPUImpeller::ImageWrapper::isTextureBacked() const {
-  return texture_ && texture_->IsValid();
-}
-
 void PixelDeferredImageGPUImpeller::ImageWrapper::SnapshotImage(
     sk_sp<SkImage> image) {
   fml::TaskRunner::RunNowOrPostTask(
@@ -113,15 +102,15 @@ void PixelDeferredImageGPUImpeller::ImageWrapper::SnapshotImage(
               return;
             }
 
-            // Use MakeTextureImage directly.
-            auto snapshot_dl_image = snapshot_delegate->MakeTextureImage(
+            // Use MakeImpellerTextureImage directly.
+            auto snapshot_texture = snapshot_delegate->MakeImpellerTextureImage(
                 image, SnapshotPixelFormat::kDontCare);
-            if (!snapshot_dl_image) {
+            if (!snapshot_texture) {
               std::scoped_lock lock(wrapper->error_mutex_);
               wrapper->error_ = "Failed to create snapshot.";
               return;
             }
-            wrapper->texture_ = snapshot_dl_image->impeller_texture();
+            wrapper->texture_ = snapshot_texture;
           }));
 }
 
