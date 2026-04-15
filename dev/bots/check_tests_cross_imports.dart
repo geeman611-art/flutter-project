@@ -108,7 +108,6 @@ class TestsCrossImportChecker {
   // See https://github.com/flutter/flutter/issues/177028.
   static final Set<String> knownWidgetsCrossImports = <String>{
     'packages/flutter/test/widgets/text_golden_test.dart',
-    'packages/flutter/test/widgets/restoration_scopes_moving_test.dart',
     'packages/flutter/test/widgets/page_transitions_test.dart',
     'packages/flutter/test/widgets/editable_text_scribble_test.dart',
     'packages/flutter/test/widgets/range_maintaining_scroll_physics_test.dart',
