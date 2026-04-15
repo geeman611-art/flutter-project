@@ -6,17 +6,17 @@ import 'package:flutter/material.dart';
 import '../utils.dart';
 import 'use_cases.dart';
 
-class RangeSliderUseCase extends UseCase {
-  RangeSliderUseCase() : super(useCaseCategory: UseCaseCategory.additional);
+class ToggleButtonsUseCase extends UseCase {
+  ToggleButtonsUseCase() : super(useCaseCategory: UseCaseCategory.core);
 
   @override
-  String get name => 'RangeSlider';
+  String get name => 'ToggleButtons';
 
   @override
-  String get route => '/range-slider';
+  String get route => '/toggle-buttons';
 
   @override
-  List<Tag> get tags => <Tag>[Tag.batch1];
+  List<Tag> get tags => <Tag>[Tag.batch2];
 
   @override
   Widget build(BuildContext context) => const MainWidget();
@@ -30,9 +30,8 @@ class MainWidget extends StatefulWidget {
 }
 
 class MainWidgetState extends State<MainWidget> {
-  RangeValues _currentRangeValues = const RangeValues(20, 60);
-
-  String pageTitle = getUseCaseName(RangeSliderUseCase());
+  String pageTitle = getUseCaseName(ToggleButtonsUseCase());
+  final List<bool> _selected = <bool>[true, false, false];
 
   @override
   Widget build(BuildContext context) {
@@ -42,19 +41,18 @@ class MainWidgetState extends State<MainWidget> {
         title: Semantics(headingLevel: 1, child: Text('$pageTitle Demo')),
       ),
       body: Center(
-        child: RangeSlider(
-          values: _currentRangeValues,
-          max: 100,
-          divisions: 5,
-          labels: RangeLabels(
-            _currentRangeValues.start.round().toString(),
-            _currentRangeValues.end.round().toString(),
-          ),
-          onChanged: (RangeValues values) {
+        child: ToggleButtons(
+          isSelected: _selected,
+          onPressed: (int index) {
             setState(() {
-              _currentRangeValues = values;
+              _selected[index] = !_selected[index];
             });
           },
+          children: <Widget>[
+            Semantics(label: 'Bold', child: const Icon(Icons.format_bold)),
+            Semantics(label: 'Italic', child: const Icon(Icons.format_italic)),
+            Semantics(label: 'Underline', child: const Icon(Icons.format_underlined)),
+          ],
         ),
       ),
     );

@@ -6,17 +6,17 @@ import 'package:flutter/material.dart';
 import '../utils.dart';
 import 'use_cases.dart';
 
-class RangeSliderUseCase extends UseCase {
-  RangeSliderUseCase() : super(useCaseCategory: UseCaseCategory.additional);
+class CloseButtonUseCase extends UseCase {
+  CloseButtonUseCase() : super(useCaseCategory: UseCaseCategory.core);
 
   @override
-  String get name => 'RangeSlider';
+  String get name => 'CloseButton';
 
   @override
-  String get route => '/range-slider';
+  String get route => '/close-button';
 
   @override
-  List<Tag> get tags => <Tag>[Tag.batch1];
+  List<Tag> get tags => <Tag>[Tag.batch2];
 
   @override
   Widget build(BuildContext context) => const MainWidget();
@@ -30,9 +30,7 @@ class MainWidget extends StatefulWidget {
 }
 
 class MainWidgetState extends State<MainWidget> {
-  RangeValues _currentRangeValues = const RangeValues(20, 60);
-
-  String pageTitle = getUseCaseName(RangeSliderUseCase());
+  String pageTitle = getUseCaseName(CloseButtonUseCase());
 
   @override
   Widget build(BuildContext context) {
@@ -40,22 +38,10 @@ class MainWidgetState extends State<MainWidget> {
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Semantics(headingLevel: 1, child: Text('$pageTitle Demo')),
+        leading: const CloseButton(),
       ),
-      body: Center(
-        child: RangeSlider(
-          values: _currentRangeValues,
-          max: 100,
-          divisions: 5,
-          labels: RangeLabels(
-            _currentRangeValues.start.round().toString(),
-            _currentRangeValues.end.round().toString(),
-          ),
-          onChanged: (RangeValues values) {
-            setState(() {
-              _currentRangeValues = values;
-            });
-          },
-        ),
+      body: const Center(
+        child: Text('Check the close button in the app bar'),
       ),
     );
   }

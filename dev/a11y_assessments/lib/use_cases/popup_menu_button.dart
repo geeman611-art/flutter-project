@@ -6,17 +6,17 @@ import 'package:flutter/material.dart';
 import '../utils.dart';
 import 'use_cases.dart';
 
-class ActionChipUseCase extends UseCase {
-  ActionChipUseCase() : super(useCaseCategory: UseCaseCategory.core);
+class PopupMenuButtonUseCase extends UseCase {
+  PopupMenuButtonUseCase() : super(useCaseCategory: UseCaseCategory.core);
 
   @override
-  String get name => 'ActionChip';
+  String get name => 'PopupMenuButton';
 
   @override
-  String get route => '/action-chip';
+  String get route => '/popup-menu-button';
 
   @override
-  List<Tag> get tags => <Tag>[Tag.batch1];
+  List<Tag> get tags => <Tag>[Tag.batch2];
 
   @override
   Widget build(BuildContext context) => const MainWidget();
@@ -30,9 +30,8 @@ class MainWidget extends StatefulWidget {
 }
 
 class MainWidgetState extends State<MainWidget> {
-  bool favorite = false;
-
-  String pageTitle = getUseCaseName(ActionChipUseCase());
+  String pageTitle = getUseCaseName(PopupMenuButtonUseCase());
+  String _selectedItem = 'None';
 
   @override
   Widget build(BuildContext context) {
@@ -45,12 +44,25 @@ class MainWidgetState extends State<MainWidget> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            ActionChip(
-              avatar: const Icon(Icons.favorite),
-              label: const Text('Action'),
-              onPressed: () {},
+            Text('Selected: $_selectedItem'),
+            PopupMenuButton<String>(
+              tooltip: 'Show menu',
+              onSelected: (String item) {
+                setState(() {
+                  _selectedItem = item;
+                });
+              },
+              itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                const PopupMenuItem<String>(
+                  value: 'Item 1',
+                  child: Text('Item 1'),
+                ),
+                const PopupMenuItem<String>(
+                  value: 'Item 2',
+                  child: Text('Item 2'),
+                ),
+              ],
             ),
-            const ActionChip(avatar: Icon(Icons.favorite), label: Text('Action')),
           ],
         ),
       ),
