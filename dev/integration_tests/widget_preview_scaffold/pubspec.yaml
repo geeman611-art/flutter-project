@@ -19,6 +19,43 @@ dependencies:
   url_launcher: any
   web: any
   webview_flutter: any
+  async: any
+  boolean_selector: any
+  characters: any
+  clock: any
+  collection: any
+  convert: any
+  crypto: any
+  fake_async: any
+  http: any
+  http_parser: any
+  leak_tracker: any
+  leak_tracker_flutter_testing: any
+  leak_tracker_testing: any
+  lints: any
+  matcher: any
+  material_color_utilities: any
+  meta: any
+  plugin_platform_interface: any
+  source_span: any
+  stream_channel: any
+  string_scanner: any
+  term_glyph: any
+  test_api: any
+  typed_data: any
+  unified_analytics: any
+  url_launcher_android: any
+  url_launcher_ios: any
+  url_launcher_linux: any
+  url_launcher_macos: any
+  url_launcher_platform_interface: any
+  url_launcher_web: any
+  url_launcher_windows: any
+  vector_math: any
+  vm_service: any
+  web_socket: any
+  web_socket_channel: any
+  webview_flutter_web: ^0.2.3+4
 
 dev_dependencies:
   flutter_tools:
@@ -29,5 +66,4 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-
-# PUBSPEC CHECKSUM: 7554df
+# PUBSPEC CHECKSUM: 36o9vn
