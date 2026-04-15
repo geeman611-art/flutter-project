@@ -7,9 +7,25 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../rendering/rendering_tester.dart' show TestCallbackPainter;
 import '../widgets/widget_inspector_test_utils.dart';
 import 'navigator_utils.dart';
+
+/// A [CustomPainter] that invokes a callback whenever it paints.
+///
+/// Used in tests to track paint events without importing cross-file test utilities.
+class _TestCallbackPainter extends CustomPainter {
+  const _TestCallbackPainter({required this.onPaint});
+  /// Called whenever the [paint] method is invoked.
+  final VoidCallback onPaint;
+
+  @override
+  void paint(Canvas _, Size __) {
+    onPaint();
+  }
+
+  @override
+  bool shouldRepaint(_TestCallbackPainter _) => true;
+}
 
 late List<int> selectedTabs;
 
@@ -60,7 +76,7 @@ void main() {
           tabBar: _buildTabBar(),
           tabBuilder: (BuildContext context, int index) {
             return CustomPaint(
-              painter: TestCallbackPainter(
+              painter: _TestCallbackPainter(
                 onPaint: () {
                   tabsPainted.add(index);
                 },
@@ -235,7 +251,7 @@ void main() {
           controller: controller,
           tabBuilder: (BuildContext context, int index) {
             return CustomPaint(
-              painter: TestCallbackPainter(
+              painter: _TestCallbackPainter(
                 onPaint: () {
                   tabsPainted.add(index);
                 },
@@ -275,7 +291,7 @@ void main() {
           tabBar: _buildTabBar(),
           tabBuilder: (BuildContext context, int index) {
             return CustomPaint(
-              painter: TestCallbackPainter(
+              painter: _TestCallbackPainter(
                 onPaint: () {
                   tabsPainted.add(index);
                 },
@@ -298,7 +314,7 @@ void main() {
           controller: controller, // Programmatically change the tab now.
           tabBuilder: (BuildContext context, int index) {
             return CustomPaint(
-              painter: TestCallbackPainter(
+              painter: _TestCallbackPainter(
                 onPaint: () {
                   tabsPainted.add(index);
                 },
@@ -635,7 +651,7 @@ void main() {
           controller: controller,
           tabBuilder: (BuildContext context, int index) {
             return CustomPaint(
-              painter: TestCallbackPainter(
+              painter: _TestCallbackPainter(
                 onPaint: () {
                   tabsPainted.add(index);
                 },
@@ -657,7 +673,7 @@ void main() {
           controller: controller,
           tabBuilder: (BuildContext context, int index) {
             return CustomPaint(
-              painter: TestCallbackPainter(
+              painter: _TestCallbackPainter(
                 onPaint: () {
                   tabsPainted.add(index);
                 },
@@ -692,7 +708,7 @@ void main() {
           controller: oldController,
           tabBuilder: (BuildContext context, int index) {
             return CustomPaint(
-              painter: TestCallbackPainter(
+              painter: _TestCallbackPainter(
                 onPaint: () {
                   tabsPainted.add(index);
                 },
@@ -712,7 +728,7 @@ void main() {
           tabBar: CupertinoTabBar(items: List<BottomNavigationBarItem>.generate(10, tabGenerator)),
           tabBuilder: (BuildContext context, int index) {
             return CustomPaint(
-              painter: TestCallbackPainter(
+              painter: _TestCallbackPainter(
                 onPaint: () {
                   tabsPainted.add(index);
                 },
@@ -823,7 +839,7 @@ void main() {
                 controller: controller,
                 tabBuilder: (BuildContext context, int index) {
                   return CustomPaint(
-                    painter: TestCallbackPainter(onPaint: () => tabsPainted0.add(index)),
+                    painter: _TestCallbackPainter(onPaint: () => tabsPainted0.add(index)),
                   );
                 },
               ),
@@ -834,7 +850,7 @@ void main() {
                 controller: controller,
                 tabBuilder: (BuildContext context, int index) {
                   return CustomPaint(
-                    painter: TestCallbackPainter(onPaint: () => tabsPainted1.add(index)),
+                    painter: _TestCallbackPainter(onPaint: () => tabsPainted1.add(index)),
                   );
                 },
               ),
@@ -866,7 +882,7 @@ void main() {
                 controller: controller,
                 tabBuilder: (BuildContext context, int index) {
                   return CustomPaint(
-                    painter: TestCallbackPainter(onPaint: () => tabsPainted0.add(index)),
+                    painter: _TestCallbackPainter(onPaint: () => tabsPainted0.add(index)),
                   );
                 },
               ),
@@ -896,7 +912,7 @@ void main() {
                 controller: controller,
                 tabBuilder: (BuildContext context, int index) {
                   return CustomPaint(
-                    painter: TestCallbackPainter(onPaint: () => tabsPainted0.add(index)),
+                    painter: _TestCallbackPainter(onPaint: () => tabsPainted0.add(index)),
                   );
                 },
               ),
