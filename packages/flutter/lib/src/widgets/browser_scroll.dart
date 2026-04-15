@@ -5,7 +5,7 @@
 /// @docImport 'scroll_physics.dart';
 library;
 
-import 'package:meta/meta.dart' show experimental;
+import 'package:flutter/foundation.dart';
 
 import 'framework.dart';
 import 'notification_listener.dart';
@@ -34,6 +34,7 @@ import 'scrollable.dart';
 ///
 /// Example:
 /// ```dart
+/// // ignore_for_file: experimental_member_use
 /// BrowserScrollable(
 ///   child: ListView.builder(
 ///     itemCount: 100,

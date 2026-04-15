@@ -167,6 +167,7 @@ void main() {
 
       // Capture the binding before it is cleared on teardown, so we can inspect
       // its call log after the widget is disposed.
+      // ignore: specify_nonobvious_local_variable_types
       final binding = ScrollableState.browserScrollViewBinding!;
       binding.calls.clear();
 
@@ -178,7 +179,10 @@ void main() {
       expect(ScrollableState.browserScrollViewBinding, isNull);
 
       // disableBrowserScrolling must have been recorded by the captured binding.
-      expect(binding.calls.where((c) => c['method'] == 'disableBrowserScrolling'), isNotEmpty);
+      expect(
+        binding.calls.where((Map<String, Object?> c) => c['method'] == 'disableBrowserScrolling'),
+        isNotEmpty,
+      );
     });
 
     testWidgets('controller swap re-registers callback', (tester) async {

@@ -19,7 +19,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/painting.dart' show AxisDirection;
 import 'package:flutter/physics.dart';
-import 'package:meta/meta.dart' show experimental;
 
 import 'binding.dart' show WidgetsBinding;
 import 'framework.dart';

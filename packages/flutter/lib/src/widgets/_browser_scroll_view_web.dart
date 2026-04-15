@@ -22,29 +22,36 @@ class BrowserScrollViewBinding {
   dynamic get _webView => view;
 
   /// Enables browser-driven scrolling on the view.
+  // ignore: avoid_dynamic_calls
   void enableBrowserScrolling() => _webView.enableBrowserScrolling();
 
   /// Disables browser-driven scrolling on the view.
+  // ignore: avoid_dynamic_calls
   void disableBrowserScrolling() => _webView.disableBrowserScrolling();
 
   /// Instantly scrolls the browser to the given offset.
+  // ignore: avoid_dynamic_calls
   void browserScrollTo(double offset) => _webView.browserScrollTo(offset);
 
   /// Smoothly scrolls the browser to the given offset.
+  // ignore: avoid_dynamic_calls
   void browserSmoothScrollTo(double offset) => _webView.browserSmoothScrollTo(offset);
 
   /// Scrolls the browser by the given delta.
+  // ignore: avoid_dynamic_calls
   void browserScrollBy(double delta) => _webView.browserScrollBy(delta);
 
   /// Updates the browser scroll content height.
   void updateBrowserScrollContentHeight(double height) =>
+      // ignore: avoid_dynamic_calls
       _webView.updateBrowserScrollContentHeight(height);
 
   /// The callback invoked when the browser reports a scroll position change.
   void Function(double offset)? get onBrowserScroll =>
+      // ignore: avoid_dynamic_calls
       _webView.onBrowserScroll as void Function(double)?;
 
   set onBrowserScroll(void Function(double offset)? callback) {
-    _webView.onBrowserScroll = callback;
+    _webView.onBrowserScroll = callback; // ignore: avoid_dynamic_calls
   }
 }
