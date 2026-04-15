@@ -9,7 +9,51 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../widgets/feedback_tester.dart';
+/// Tracks how often feedback has been requested since its instantiation.
+///
+/// It replaces the MockMethodCallHandler of [SystemChannels.platform] and
+/// cannot be used in combination with other classes that do the same.
+class _FeedbackTester {
+  _FeedbackTester() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      _handler,
+    );
+  }
+
+  /// Number of times haptic feedback was requested (vibration).
+  int get hapticCount => _hapticCount;
+  int _hapticCount = 0;
+
+  /// Number of times the click sound was requested to play.
+  int get clickSoundCount => _clickSoundCount;
+  int _clickSoundCount = 0;
+
+  Future<void> _handler(MethodCall methodCall) async {
+    switch (methodCall.method) {
+      case 'HapticFeedback.vibrate':
+        _hapticCount++;
+      case 'SystemSound.play':
+        if (methodCall.arguments == SystemSoundType.click.toString()) {
+          _clickSoundCount++;
+        }
+    }
+  }
+
+  /// Stops tracking.
+  void dispose() {
+    assert(
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.checkMockMessageHandler(
+        SystemChannels.platform.name,
+        _handler,
+      ),
+    );
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      null,
+    );
+  }
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -932,10 +976,10 @@ void main() {
 
     group('Haptic feedback', () {
       const hapticFeedbackInterval = Duration(milliseconds: 10);
-      late FeedbackTester feedback;
+      late _FeedbackTester feedback;
 
       setUp(() {
-        feedback = FeedbackTester();
+        feedback = _FeedbackTester();
       });
 
       tearDown(() {
