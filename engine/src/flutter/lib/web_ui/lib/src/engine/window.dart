@@ -10,6 +10,7 @@ import 'package:ui/ui.dart' as ui;
 import 'package:ui/ui_web/src/ui_web.dart' as ui_web;
 
 import '../engine.dart' show DimensionsProvider, registerHotRestartListener, renderer;
+import 'address_bar_controller.dart';
 import 'browser_detection.dart';
 import 'display.dart';
 import 'dom.dart';
@@ -69,6 +70,7 @@ class EngineFlutterView implements ui.FlutterView {
     // hot restart.
     embeddingStrategy.attachViewRoot(dom.rootElement);
     pointerBinding = PointerBinding(this);
+    addressBarController = AddressBarController(this);
     _resizeSubscription = onResize.listen(_handleBrowserResize);
     _globalHtmlAttributes.applyAttributes(
       viewId: viewId,
@@ -110,6 +112,7 @@ class EngineFlutterView implements ui.FlutterView {
     _resizeSubscription.cancel();
     dimensionsProvider.close();
     pointerBinding.dispose();
+    addressBarController.dispose();
     dom.rootElement.remove();
     // TODO(harryterkelsen): What should we do about this in multi-view?
     renderer.clearFragmentProgramCache();
@@ -153,6 +156,8 @@ class EngineFlutterView implements ui.FlutterView {
   late final DomManager dom = DomManager(devicePixelRatio: devicePixelRatio);
 
   late final PointerBinding pointerBinding;
+
+  late final AddressBarController addressBarController;
 
   @override
   ViewConstraints get physicalConstraints {
@@ -259,6 +264,7 @@ class EngineFlutterView implements ui.FlutterView {
   @override
   ViewPadding get viewInsets => _viewInsets;
   ViewPadding _viewInsets = ui.ViewPadding.zero as ViewPadding;
+  bool _hasNotifiedMetrics = false;
 
   @override
   ViewPadding get viewPadding => _viewConfiguration.viewPadding;
@@ -315,6 +321,8 @@ class EngineFlutterView implements ui.FlutterView {
   void _handleBrowserResize(ui.Size? _) {
     StyleManager.scaleSemanticsHost(dom.semanticsHost, devicePixelRatio);
     final ui.Size newPhysicalSize = _computePhysicalSize();
+    final ui.Size previousPhysicalSize = _physicalSize ?? ui.Size.zero;
+    final ViewPadding previousViewInsets = _viewInsets;
     if (_shouldPreservePhysicalSizeOnResize && !_isRotation(newPhysicalSize)) {
       _computeOnScreenKeyboardInsets(true);
     } else {
@@ -322,7 +330,16 @@ class EngineFlutterView implements ui.FlutterView {
       // When physical size changes this value has to be recalculated.
       _computeOnScreenKeyboardInsets(false);
     }
-    platformDispatcher.invokeOnMetricsChanged();
+    final bool sizeChanged = newPhysicalSize != previousPhysicalSize;
+    final bool insetsChanged =
+        _viewInsets.bottom != previousViewInsets.bottom ||
+        _viewInsets.top != previousViewInsets.top ||
+        _viewInsets.left != previousViewInsets.left ||
+        _viewInsets.right != previousViewInsets.right;
+    if (sizeChanged || insetsChanged || !_hasNotifiedMetrics) {
+      _hasNotifiedMetrics = true;
+      platformDispatcher.invokeOnMetricsChanged();
+    }
   }
 
   /// Uses the previous physical size and current innerHeight/innerWidth

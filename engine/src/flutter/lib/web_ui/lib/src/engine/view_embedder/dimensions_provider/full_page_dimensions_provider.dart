@@ -70,20 +70,20 @@ class FullPageDimensionsProvider extends DimensionsProvider {
 
     if (viewport != null) {
       if (ui_web.browser.operatingSystem == ui_web.OperatingSystem.iOs) {
-        /// Chrome on iOS reports incorrect viewport.height when app
-        /// starts in portrait orientation and the phone is rotated to
-        /// landscape.
-        ///
-        /// We instead use documentElement clientWidth/Height to read
-        /// accurate physical size. VisualViewport api is only used during
-        /// text editing to make sure inset is correctly reported to
-        /// framework.
-        final double docWidth = domDocument.documentElement!.clientWidth;
-        final double docHeight = domDocument.documentElement!.clientHeight;
-        windowInnerWidth = docWidth * devicePixelRatio;
-        windowInnerHeight = docHeight * devicePixelRatio;
+        // Chrome on iOS reports incorrect viewport.width when the app starts
+        // in portrait and is rotated to landscape.  clientWidth is reliable.
+        // See: https://github.com/flutter/flutter/issues/81430
+        windowInnerWidth = domDocument.documentElement!.clientWidth * devicePixelRatio;
       } else {
         windowInnerWidth = viewport.width! * devicePixelRatio;
+      }
+
+      if (ui_web.browser.isMobile) {
+        // innerHeight tracks address bar collapse without firing
+        // intermediate values during the animation, unlike viewport.height.
+        // See: https://github.com/flutter/flutter/issues/69529
+        windowInnerHeight = domWindow.innerHeight! * devicePixelRatio;
+      } else {
         windowInnerHeight = viewport.height! * devicePixelRatio;
       }
     } else {
@@ -100,8 +100,9 @@ class FullPageDimensionsProvider extends DimensionsProvider {
     late double windowInnerHeight;
 
     if (viewport != null) {
-      if (ui_web.browser.operatingSystem == ui_web.OperatingSystem.iOs && !isEditingOnMobile) {
-        windowInnerHeight = domDocument.documentElement!.clientHeight * devicePixelRatio;
+      if (ui_web.browser.isMobile && !isEditingOnMobile) {
+        // Match computePhysicalSize() which uses innerHeight on mobile.
+        windowInnerHeight = domWindow.innerHeight! * devicePixelRatio;
       } else {
         windowInnerHeight = viewport.height! * devicePixelRatio;
       }
