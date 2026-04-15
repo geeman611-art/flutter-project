@@ -538,6 +538,73 @@ void main() {
     checkOptionHighlight(tester, 'northern white rhinoceros', null);
   });
 
+  testWidgets('Tab moves focus to the next enabled widget when options are shown', (
+    WidgetTester tester,
+  ) async {
+    final firstFieldFocusNode = FocusNode();
+    final autocompleteFocusNode = FocusNode();
+    final trailingAutocompleteFocusNode = FocusNode();
+    final autocompleteController = TextEditingController();
+    final trailingAutocompleteController = TextEditingController();
+    addTearDown(firstFieldFocusNode.dispose);
+    addTearDown(autocompleteFocusNode.dispose);
+    addTearDown(trailingAutocompleteFocusNode.dispose);
+    addTearDown(autocompleteController.dispose);
+    addTearDown(trailingAutocompleteController.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Column(
+            children: <Widget>[
+              TextFormField(focusNode: firstFieldFocusNode),
+              Autocomplete<String>(
+                focusNode: autocompleteFocusNode,
+                textEditingController: autocompleteController,
+                optionsBuilder: (TextEditingValue textEditingValue) => <String>['apple'],
+                fieldViewBuilder: (
+                  BuildContext context,
+                  TextEditingController textEditingController,
+                  FocusNode focusNode,
+                  VoidCallback onFieldSubmitted,
+                ) {
+                  return TextFormField(controller: textEditingController, focusNode: focusNode);
+                },
+              ),
+              TextFormField(enabled: false),
+              TextFormField(enabled: false),
+              Autocomplete<String>(
+                focusNode: trailingAutocompleteFocusNode,
+                textEditingController: trailingAutocompleteController,
+                optionsBuilder: (TextEditingValue textEditingValue) => <String>['banana'],
+                fieldViewBuilder: (
+                  BuildContext context,
+                  TextEditingController textEditingController,
+                  FocusNode focusNode,
+                  VoidCallback onFieldSubmitted,
+                ) {
+                  return TextFormField(controller: textEditingController, focusNode: focusNode);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    firstFieldFocusNode.requestFocus();
+    await tester.pump();
+    expect(firstFieldFocusNode.hasFocus, isTrue);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    expect(autocompleteFocusNode.hasFocus, isTrue);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    expect(trailingAutocompleteFocusNode.hasFocus, isTrue);
+  });
+
   group('optionsViewOpenDirection', () {
     testWidgets('default (down)', (WidgetTester tester) async {
       await tester.pumpWidget(
