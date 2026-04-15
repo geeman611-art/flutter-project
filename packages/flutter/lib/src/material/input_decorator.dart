@@ -756,18 +756,22 @@ class _RenderDecoration extends RenderBox
   RenderBox? get container => childForSlot(_DecorationSlot.container);
 
   // The returned list is ordered for hit testing.
+  // Prioritize hint when not focused to make it hit-testable for accessibility
+  // guidelines.
   @override
   Iterable<RenderBox> get children {
     final RenderBox? helperError = childForSlot(_DecorationSlot.helperError);
     return <RenderBox>[
       ?icon,
-      ?input,
+      if (!isFocused) ?hint,
+      if (!isFocused) ?label,
       ?prefixIcon,
       ?suffixIcon,
       ?prefix,
       ?suffix,
-      ?label,
-      ?hint,
+      ?input,
+      if (isFocused) ?label,
+      if (isFocused) ?hint,
       ?helperError,
       ?counter,
       ?container,

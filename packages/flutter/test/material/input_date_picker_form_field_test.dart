@@ -482,7 +482,7 @@ void main() {
       );
       expect(dateInput1, findsOneWidget);
 
-      await tester.tap(dateInput1);
+      await tester.tap(find.byType(TextField));
       await tester.pumpAndSettle();
 
       await tester.enterText(dateInput1, '2025..3..10');
@@ -497,7 +497,7 @@ void main() {
       );
       expect(dateInput2, findsOneWidget);
 
-      await tester.tap(dateInput2);
+      await tester.tap(find.byType(TextField));
       await tester.pumpAndSettle();
 
       await tester.enterText(dateInput2, '2025..4..21');
